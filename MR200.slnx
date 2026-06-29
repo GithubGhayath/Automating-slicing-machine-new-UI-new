@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DataAccess/DataAccess.csproj" />
+  <Project Path="MR200.UI/MR200.UI.csproj" />
+</Solution>
