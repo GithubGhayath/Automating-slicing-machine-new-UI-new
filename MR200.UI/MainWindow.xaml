@@ -20,6 +20,8 @@
     <Window.Resources>
         <conv:PageVisibilityConverter x:Key="PageVis"/>
         <conv:ActivePageConverter x:Key="ActivePage"/>
+        <conv:StringToBrushConverter x:Key="StrBrush"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolVis"/>
 
         <Style x:Key="AnimatedPage" TargetType="Grid">
             <Style.Triggers>
@@ -132,16 +134,16 @@
                     <!-- Nav -->
                     <StackPanel Grid.Row="1" Margin="0,6,0,0">
                         <RadioButton Style="{StaticResource NavButton}" Content="Home" Tag="&#xE80F;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Home}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Home, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Home"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="Charts" Tag="&#xE9D9;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Charts}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Charts, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Charts"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="History" Tag="&#xE81C;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=History}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=History, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="History"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="Maintenance" Tag="&#xE90F;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Maintenance}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Maintenance, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Maintenance"/>
                     </StackPanel>
 
@@ -487,12 +489,33 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6,0,0,12">
-                                <Border Width="4" Height="30" CornerRadius="2" Background="{StaticResource PrimaryAccentBrush}" Margin="0,0,10,0"/>
-                                <TextBlock Text="Process History Dashboard" FontSize="24" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                            </StackPanel>
+                            <Grid Grid.Row="0" Margin="6,0,0,12">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Border Width="4" Height="30" CornerRadius="2" Background="{StaticResource PrimaryAccentBrush}" Margin="0,0,10,0"/>
+                                    <StackPanel>
+                                        <TextBlock Text="Process History Dashboard" FontSize="24" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <TextBlock Text="Cutting analytics &amp; force diagnostics across all recorded operations" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <!-- Hardwood / Softwood split chips -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Border Background="#FFF7ED" CornerRadius="20" Padding="14,7" Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="9" Height="9" Fill="{StaticResource PrimaryAccentBrush}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                            <TextBlock FontSize="11"><Run Text="Hardwood: " Foreground="{StaticResource SubTextBrush}"/><Run Text="{Binding HardwoodCount, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/></TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="#F0FDF4" CornerRadius="20" Padding="14,7">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="9" Height="9" Fill="{StaticResource SuccessGreenBrush}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                            <TextBlock FontSize="11"><Run Text="Softwood: " Foreground="{StaticResource SubTextBrush}"/><Run Text="{Binding SoftwoodCount, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/></TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
 
                             <!-- KPI Row 1: Main metrics with animated hover -->
                             <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,8">
@@ -506,6 +529,10 @@
                                         </Grid>
                                         <TextBlock Text="Total Fees" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding TotalFeesCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -516,6 +543,10 @@
                                         </Border>
                                         <TextBlock Text="Consumed Energy" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding ConsumedEnergyCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -526,6 +557,10 @@
                                         </Border>
                                         <TextBlock Text="Production Volume" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding ProductionVolumeCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -536,6 +571,10 @@
                                         </Border>
                                         <TextBlock Text="Total Processes" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding TotalProcessesCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
@@ -554,6 +593,10 @@
                                                 <Run Text=" N" Foreground="{StaticResource SubTextBrush}"/>
                                             </TextBlock>
                                         </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding AllProcessesScopeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -568,6 +611,10 @@
                                                 <Run Text=" N.m" Foreground="{StaticResource SubTextBrush}"/>
                                             </TextBlock>
                                         </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding AllProcessesScopeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -581,11 +628,15 @@
                                                 <Run Text="{Binding AvgCostPerM3Card, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource SoftGoldBrush}"/>
                                             </TextBlock>
                                         </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding AllProcessesScopeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
 
-                            <!-- Charts Row: Production History + Wood Type Distribution -->
+                            <!-- Charts Row 1: Production History + Wood Type Distribution -->
                             <UniformGrid Grid.Row="3" Columns="2" Margin="0,0,0,8">
                                 <Border Style="{StaticResource Card}">
                                     <StackPanel>
@@ -603,8 +654,31 @@
                                 </Border>
                             </UniformGrid>
 
+                            <!-- Charts Row 2 (NEW): Force component comparison + Force profile radar -->
+                            <UniformGrid Grid.Row="4" Columns="2" Margin="0,0,0,8">
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Force Components Comparison"/>
+                                        <TextBlock Text="Cutting / Active / Thrust / Shear / Friction forces per recent process (N)"
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
+                                        <lvc:CartesianChart Series="{Binding ForceComparisonSeries}" XAxes="{Binding ForceComparisonXAxes}"
+                                                            Height="250" ZoomMode="X" AnimationsSpeed="0:0:0.5"
+                                                            LegendPosition="Bottom"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Force Profile — Latest Process"/>
+                                        <TextBlock Text="Radar of the full force signature for the most recent cut"
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
+                                        <lvc:PolarChart Series="{Binding ForceRadarSeries}" AngleAxes="{Binding ForceRadarAngleAxes}"
+                                                        Height="250" AnimationsSpeed="0:0:0.6"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
                             <!-- History DataGrid -->
-                            <Border Grid.Row="4" Style="{StaticResource Card}" Margin="6,0,6,8">
+                            <Border Grid.Row="5" Style="{StaticResource Card}" Margin="6,0,6,8">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Style="{StaticResource SectionHeader}" Text="Process Records" Margin="0"/>
@@ -625,13 +699,19 @@
                                             <DataGridTextColumn Header="kWh" Binding="{Binding ConsumedElectricity, StringFormat=F2}" Width="70"/>
                                             <DataGridTextColumn Header="Start" Binding="{Binding StartAt}" Width="120"/>
                                             <DataGridTextColumn Header="End" Binding="{Binding EndAt}" Width="120"/>
-                                            <DataGridTemplateColumn Header="Actions" Width="80">
+                                            <DataGridTemplateColumn Header="Actions" Width="150">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Button Content="View" FontSize="10" Padding="6,2" Cursor="Hand"
-                                                                Style="{StaticResource TealButton}"
-                                                                Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                CommandParameter="{Binding ProcessNo}"/>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Button Content="View" FontSize="10" Padding="8,2" Cursor="Hand" Margin="0,0,5,0"
+                                                                    Style="{StaticResource TealButton}"
+                                                                    Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding ProcessNo}"/>
+                                                            <Button Content="&#xE896;  PDF" FontFamily="Segoe UI" FontSize="10" Padding="8,2" Cursor="Hand"
+                                                                    Style="{StaticResource AccentButton}"
+                                                                    Command="{Binding DataContext.ExportPdfCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding ProcessNo}"/>
+                                                        </StackPanel>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
@@ -722,6 +802,132 @@
 
                     </Grid>
                 </ScrollViewer>
+
+                <!-- ===== ANIMATED PROCESS DETAIL DRAWER (overlay) ===== -->
+                <Grid Grid.Row="1" Panel.ZIndex="20"
+                      Visibility="{Binding IsDetailVisible, Converter={StaticResource BoolVis}}">
+                    <!-- Scrim (click to close) -->
+                    <Button Command="{Binding CloseDetailCommand}" Cursor="Arrow">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="#55000000"/>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Drawer -->
+                    <Border HorizontalAlignment="Right" Width="440" Background="White"
+                            CornerRadius="20,0,0,20">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="30" ShadowDepth="-4" Direction="0" Opacity="0.18"/>
+                        </Border.Effect>
+                        <Border.RenderTransform>
+                            <TranslateTransform X="0"/>
+                        </Border.RenderTransform>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsVisible" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                     From="460" To="0" Duration="0:0:0.35">
+                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <Grid Margin="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Drawer header -->
+                            <Border Grid.Row="0" CornerRadius="20,0,0,0" Padding="20,18">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#17463E" Offset="0"/>
+                                        <GradientStop Color="#1F5F5B" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="Bold" Foreground="White"/>
+                                        <TextBlock Text="{Binding DetailSubtitle}" FontSize="11" Foreground="#9FD3CB" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <Button Content="&#xE10A;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="White"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Command="{Binding CloseDetailCommand}"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Drawer body -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,16">
+                                <StackPanel>
+                                    <!-- Operation conditions -->
+                                    <TextBlock Style="{StaticResource SectionHeader}" Text="Operation Conditions"/>
+                                    <UniformGrid Columns="2" Margin="0,0,0,14">
+                                        <StackPanel Margin="0,4"><TextBlock Text="Cutting Speed" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailCuttingSpeed}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Feed Rate" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailFeedRate}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Shaft Speed" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailShaftSpeed}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Consumed Energy" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailEnergy}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Friction Angle" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailFrictionAngle}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Shear Angle" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailShearAngle}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Center Angle" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailCenterAngle}" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        <StackPanel Margin="0,4"><TextBlock Text="Cutting Moment" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding DetailMoment}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryAccentBrush}"/></StackPanel>
+                                    </UniformGrid>
+
+                                    <!-- Force breakdown with proportional bars -->
+                                    <TextBlock Style="{StaticResource SectionHeader}" Text="Force Breakdown"/>
+                                    <ItemsControl ItemsSource="{Binding SelectedForceBars}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,5">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid Grid.Row="0">
+                                                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{StaticResource DarkTextBrush}"/>
+                                                        <TextBlock Text="{Binding Value}" FontSize="11" FontWeight="SemiBold"
+                                                                   HorizontalAlignment="Right" Foreground="{StaticResource SubTextBrush}"/>
+                                                    </Grid>
+                                                    <ProgressBar Grid.Row="1" Style="{StaticResource ForceProgressBar}" Margin="0,3,0,0"
+                                                                 Value="{Binding Percent, Mode=OneWay}"
+                                                                 Foreground="{Binding BarColor, Converter={StaticResource StrBrush}}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Drawer footer -->
+                            <Border Grid.Row="2" Background="#F9FAFB" Padding="20,14" CornerRadius="0,0,0,20">
+                                <Button Content="&#xE896;  Export PDF Report" FontFamily="Segoe UI"
+                                        Style="{StaticResource AccentButton}" HorizontalAlignment="Stretch"
+                                        Command="{Binding ExportSelectedPdfCommand}"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Grid>
         </Grid>
     </Border>

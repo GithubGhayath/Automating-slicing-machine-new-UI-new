@@ -46,6 +46,15 @@ namespace MR200.UI.ViewModels
         public string EndAt { get; set; } = "";
     }
 
+    // One animated force bar inside the inline process-detail panel.
+    public class ForceBar
+    {
+        public string Name { get; set; } = "";
+        public string Value { get; set; } = "";
+        public double Percent { get; set; }          // 0..100 relative to the largest force
+        public string BarColor { get; set; } = "#E05C1A";
+    }
+
     public class MainViewModel : BaseViewModel
     {
         private readonly DispatcherTimer _timer;
@@ -95,6 +104,8 @@ namespace MR200.UI.ViewModels
             EndProcessCommand = new RelayCommand(_ => EndProcess(), _ => CanEndProcess);
             ViewDetailsCommand = new RelayCommand(ViewDetails);
             ExportPdfCommand = new RelayCommand(ExportPdf);
+            CloseDetailCommand = new RelayCommand(_ => IsDetailVisible = false);
+            ExportSelectedPdfCommand = new RelayCommand(_ => ExportPdf(DetailProcessNo));
 
             InitCuttingForceChart();
             InitMomentChart();
@@ -165,6 +176,28 @@ namespace MR200.UI.ViewModels
         private string _maxCuttingMomentCard = "0.00"; public string MaxCuttingMomentCard { get => _maxCuttingMomentCard; set => SetProperty(ref _maxCuttingMomentCard, value); }
         private string _energyEfficiencyCard = "0.000"; public string EnergyEfficiencyCard { get => _energyEfficiencyCard; set => SetProperty(ref _energyEfficiencyCard, value); }
         private string _avgCostPerM3Card = "$0.00"; public string AvgCostPerM3Card { get => _avgCostPerM3Card; set => SetProperty(ref _avgCostPerM3Card, value); }
+        private string _hardwoodCount = "0"; public string HardwoodCount { get => _hardwoodCount; set => SetProperty(ref _hardwoodCount, value); }
+        private string _softwoodCount = "0"; public string SoftwoodCount { get => _softwoodCount; set => SetProperty(ref _softwoodCount, value); }
+
+        // Period captions describing the time span / scope each card is aggregated over.
+        private string _periodRangeText = "No data yet"; public string PeriodRangeText { get => _periodRangeText; set => SetProperty(ref _periodRangeText, value); }
+        private string _allProcessesScopeText = "All processes"; public string AllProcessesScopeText { get => _allProcessesScopeText; set => SetProperty(ref _allProcessesScopeText, value); }
+        #endregion
+
+        #region Inline Process Detail Panel
+        private bool _isDetailVisible; public bool IsDetailVisible { get => _isDetailVisible; set => SetProperty(ref _isDetailVisible, value); }
+        private string _detailTitle = ""; public string DetailTitle { get => _detailTitle; set => SetProperty(ref _detailTitle, value); }
+        private string _detailSubtitle = ""; public string DetailSubtitle { get => _detailSubtitle; set => SetProperty(ref _detailSubtitle, value); }
+        private string _detailCuttingSpeed = ""; public string DetailCuttingSpeed { get => _detailCuttingSpeed; set => SetProperty(ref _detailCuttingSpeed, value); }
+        private string _detailFeedRate = ""; public string DetailFeedRate { get => _detailFeedRate; set => SetProperty(ref _detailFeedRate, value); }
+        private string _detailShaftSpeed = ""; public string DetailShaftSpeed { get => _detailShaftSpeed; set => SetProperty(ref _detailShaftSpeed, value); }
+        private string _detailEnergy = ""; public string DetailEnergy { get => _detailEnergy; set => SetProperty(ref _detailEnergy, value); }
+        private string _detailFrictionAngle = ""; public string DetailFrictionAngle { get => _detailFrictionAngle; set => SetProperty(ref _detailFrictionAngle, value); }
+        private string _detailShearAngle = ""; public string DetailShearAngle { get => _detailShearAngle; set => SetProperty(ref _detailShearAngle, value); }
+        private string _detailCenterAngle = ""; public string DetailCenterAngle { get => _detailCenterAngle; set => SetProperty(ref _detailCenterAngle, value); }
+        private string _detailMoment = ""; public string DetailMoment { get => _detailMoment; set => SetProperty(ref _detailMoment, value); }
+        private int _detailProcessNo; public int DetailProcessNo { get => _detailProcessNo; set => SetProperty(ref _detailProcessNo, value); }
+        public ObservableCollection<ForceBar> SelectedForceBars { get; } = new();
         #endregion
 
         #region State
@@ -190,6 +223,18 @@ namespace MR200.UI.ViewModels
         public ISeries[] HistoryProductionSeries { get => _historyProductionSeries; set => SetProperty(ref _historyProductionSeries, value); }
         private ISeries[] _woodTypePieSeries = Array.Empty<ISeries>();
         public ISeries[] WoodTypePieSeries { get => _woodTypePieSeries; set => SetProperty(ref _woodTypePieSeries, value); }
+
+        // NEW: force-component comparison columns across recent processes
+        private ISeries[] _forceComparisonSeries = Array.Empty<ISeries>();
+        public ISeries[] ForceComparisonSeries { get => _forceComparisonSeries; set => SetProperty(ref _forceComparisonSeries, value); }
+        private Axis[] _forceComparisonXAxes = Array.Empty<Axis>();
+        public Axis[] ForceComparisonXAxes { get => _forceComparisonXAxes; set => SetProperty(ref _forceComparisonXAxes, value); }
+
+        // NEW: radar/polar force profile of the latest (or selected) process
+        private ISeries[] _forceRadarSeries = Array.Empty<ISeries>();
+        public ISeries[] ForceRadarSeries { get => _forceRadarSeries; set => SetProperty(ref _forceRadarSeries, value); }
+        private PolarAxis[] _forceRadarAngleAxes = Array.Empty<PolarAxis>();
+        public PolarAxis[] ForceRadarAngleAxes { get => _forceRadarAngleAxes; set => SetProperty(ref _forceRadarAngleAxes, value); }
         #endregion
 
         #region Commands
@@ -200,6 +245,8 @@ namespace MR200.UI.ViewModels
         public RelayCommand EndProcessCommand { get; }
         public RelayCommand ViewDetailsCommand { get; }
         public RelayCommand ExportPdfCommand { get; }
+        public RelayCommand CloseDetailCommand { get; }
+        public RelayCommand ExportSelectedPdfCommand { get; }
         #endregion
 
         private void LoadWoodTypes()
@@ -530,6 +577,22 @@ namespace MR200.UI.ViewModels
 
                     double totalFees = HistoryList.Sum(x => x.ProductionCondition.TotalFees);
                     AvgCostPerM3Card = totalVolume > 0 ? (totalFees / totalVolume).ToString("C") : "N/A";
+
+                    HardwoodCount = HistoryList.Count(x => x.WoodType.Category == DataAccess.Enums.enWoodCategory.Hardwood).ToString();
+                    SoftwoodCount = HistoryList.Count(x => x.WoodType.Category == DataAccess.Enums.enWoodCategory.Softwood).ToString();
+
+                    // Period captions: the actual date span covered by the records.
+                    var firstStart = HistoryList.Min(x => x.auditTimestamp.StartAt);
+                    var lastEnd = HistoryList.Max(x => x.auditTimestamp.EndAt);
+                    PeriodRangeText = firstStart.Date == lastEnd.Date
+                        ? $"{firstStart:dd MMM yyyy}"
+                        : $"{firstStart:dd MMM yyyy}  →  {lastEnd:dd MMM yyyy}";
+                    AllProcessesScopeText = $"{HistoryList.Count} processes · {PeriodRangeText}";
+                }
+                else
+                {
+                    PeriodRangeText = "No data yet";
+                    AllProcessesScopeText = "No data yet";
                 }
 
                 BuildHistoryCharts();
@@ -595,40 +658,141 @@ namespace MR200.UI.ViewModels
                 Stroke = new SolidColorPaint(SKColors.White, 2),
                 Pushout = i == 0 ? 6 : 0
             } as ISeries).ToArray();
+
+            BuildForceComparisonChart();
+            BuildForceRadarChart();
         }
 
+        // NEW component: grouped columns comparing the main force components
+        // (from CriticalValues in the DB) across the most recent processes.
+        private void BuildForceComparisonChart()
+        {
+            var recent = HistoryList
+                .OrderByDescending(x => x.auditTimestamp.StartAt)
+                .Take(8)
+                .Reverse()
+                .ToList();
+
+            ForceComparisonXAxes = new[]
+            {
+                new Axis
+                {
+                    Labels = recent.Select(p => $"P{p.Id}").ToArray(),
+                    LabelsRotation = 0,
+                    TextSize = 11,
+                    LabelsPaint = new SolidColorPaint(SKColor.Parse("#6B7280"))
+                }
+            };
+
+            ISeries ColumnFor(string name, string hex, Func<OperationsProcess, double> sel) =>
+                new ColumnSeries<double>
+                {
+                    Name = name,
+                    Values = recent.Select(sel).ToArray(),
+                    Fill = new SolidColorPaint(SKColor.Parse(hex)),
+                    Stroke = null,
+                    MaxBarWidth = 18,
+                    Rx = 3, Ry = 3
+                };
+
+            ForceComparisonSeries = new[]
+            {
+                ColumnFor("Cutting",  "#E05C1A", p => p.CriticalValues.CuttingForce),
+                ColumnFor("Active",   "#17463E", p => p.CriticalValues.ActiveForce),
+                ColumnFor("Thrust",   "#C89B3C", p => p.CriticalValues.ThrustForce),
+                ColumnFor("Shear",    "#4E6E81", p => p.CriticalValues.ShearForce),
+                ColumnFor("Friction", "#10B981", p => p.CriticalValues.FrictionForceOnRake),
+            };
+        }
+
+        // NEW component: radar (polar) chart showing the full force profile of
+        // the latest process so the operator can spot an unbalanced cut at a glance.
+        private void BuildForceRadarChart()
+        {
+            var latest = HistoryList.OrderByDescending(x => x.auditTimestamp.StartAt).FirstOrDefault();
+            if (latest == null) { ForceRadarSeries = Array.Empty<ISeries>(); return; }
+
+            var cv = latest.CriticalValues;
+            var values = new double[]
+            {
+                cv.CuttingForce, cv.ActiveForce, cv.ThrustForce, cv.ShearForce,
+                cv.FrictionForceOnRake, cv.NormalForceToRake, cv.NormalForceToShear
+            };
+
+            ForceRadarAngleAxes = new[]
+            {
+                new PolarAxis
+                {
+                    Labels = new[] { "Cutting", "Active", "Thrust", "Shear", "Friction", "N.Rake", "N.Shear" },
+                    LabelsPaint = new SolidColorPaint(SKColor.Parse("#17463E")),
+                    TextSize = 11
+                }
+            };
+
+            ForceRadarSeries = new ISeries[]
+            {
+                new PolarLineSeries<double>
+                {
+                    Values = values,
+                    Name = $"Process #{latest.Id}",
+                    Stroke = new SolidColorPaint(SKColor.Parse("#E05C1A"), 3),
+                    Fill = new SolidColorPaint(SKColor.Parse("#E05C1A").WithAlpha(60)),
+                    GeometrySize = 8,
+                    GeometryFill = new SolidColorPaint(SKColor.Parse("#E05C1A")),
+                    GeometryStroke = new SolidColorPaint(SKColors.White, 2),
+                    LineSmoothness = 0.4
+                }
+            };
+        }
+
+        // Populates the animated inline detail panel (replaces the old MessageBox).
         private void ViewDetails(object? param)
         {
-            if (param is int processNo)
+            if (param is not int processNo) return;
+            var target = HistoryList.SingleOrDefault(x => x.Id == processNo);
+            if (target == null) return;
+
+            var cv = target.CriticalValues;
+            var oc = target.OperationCondition;
+
+            DetailProcessNo = processNo;
+            DetailTitle = $"Process #{processNo}";
+            DetailSubtitle = $"{target.WoodType.Type} ({target.WoodType.Category})  •  {target.auditTimestamp.StartAt:yyyy-MM-dd HH:mm}";
+
+            DetailCuttingSpeed = $"{oc.CuttingSpeed:F2} m/min";
+            DetailFeedRate = $"{oc.FeedRate:F2} m/min";
+            DetailShaftSpeed = $"{oc.SheftSpeed:F0} RPM";
+            DetailEnergy = $"{oc.ConsumedElectricity:F2} kWh";
+            DetailFrictionAngle = $"{cv.FrictionAngle:F2}°";
+            DetailShearAngle = $"{cv.ShearAngle:F2}°";
+            DetailCenterAngle = $"{cv.CenterAngle:F2}°";
+            DetailMoment = $"{cv.CuttingMoment:F2} N.m";
+
+            // Build proportional force bars (relative to the largest force component).
+            var forces = new (string Name, double Value, string Color)[]
             {
-                var target = HistoryList.SingleOrDefault(x => x.Id == processNo);
-                if (target == null) return;
-                var cv = target.CriticalValues;
-                var oc = target.OperationCondition;
-                string message =
-                    $"--- Critical Values ---\n" +
-                    $"Studied Theta: {cv.StadiedTheta:F2}°\n" +
-                    $"Cutting Force: {cv.CuttingForce:F2} N\n" +
-                    $"Active Force: {cv.ActiveForce:F2} N\n" +
-                    $"Friction Force on Rake: {cv.FrictionForceOnRake:F2} N\n" +
-                    $"Thrust Force: {cv.ThrustForce:F2} N\n" +
-                    $"Shear Force: {cv.ShearForce:F2} N\n" +
-                    $"Normal Force to Shear: {cv.NormalForceToShear:F2} N\n" +
-                    $"Normal Force to Rake: {cv.NormalForceToRake:F2} N\n" +
-                    $"Cutting Moment: {cv.CuttingMoment:F2} N.m\n" +
-                    $"Friction Angle: {cv.FrictionAngle:F2}°\n" +
-                    $"Shear Angle: {cv.ShearAngle:F2}°\n" +
-                    $"Enter Angle: {cv.EnterAngle:F2}°\n" +
-                    $"Leaving Angle: {cv.LeavingAngle:F2}°\n" +
-                    $"Center Angle: {cv.CenterAngle:F2}°\n" +
-                    $"Friction Corr. Coeff: {cv.FrictionCorrectionCofficient:F3}\n\n" +
-                    $"--- Operation Conditions ---\n" +
-                    $"Cutting Speed: {oc.CuttingSpeed:F2} m/min\n" +
-                    $"Feed Rate: {oc.FeedRate:F2} m/min\n" +
-                    $"Shaft Speed: {oc.SheftSpeed:F0} RPM\n" +
-                    $"Consumed Electricity: {oc.ConsumedElectricity:F2} kWh";
-                System.Windows.MessageBox.Show(message, $"Process #{processNo} Details");
-            }
+                ("Cutting Force",        cv.CuttingForce,        "#E05C1A"),
+                ("Active Force",         cv.ActiveForce,         "#17463E"),
+                ("Thrust Force",         cv.ThrustForce,         "#C89B3C"),
+                ("Shear Force",          cv.ShearForce,          "#4E6E81"),
+                ("Friction on Rake",     cv.FrictionForceOnRake, "#10B981"),
+                ("Normal to Rake",       cv.NormalForceToRake,   "#1F5F5B"),
+                ("Normal to Shear",      cv.NormalForceToShear,  "#EF4444"),
+            };
+            double max = forces.Max(f => Math.Abs(f.Value));
+            if (max <= 0) max = 1;
+
+            SelectedForceBars.Clear();
+            foreach (var f in forces)
+                SelectedForceBars.Add(new ForceBar
+                {
+                    Name = f.Name,
+                    Value = $"{f.Value:F2} N",
+                    Percent = Math.Abs(f.Value) / max * 100.0,
+                    BarColor = f.Color
+                });
+
+            IsDetailVisible = true;
         }
 
         private void ExportPdf(object? param)
