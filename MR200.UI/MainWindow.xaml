@@ -23,6 +23,38 @@
         <conv:StringToBrushConverter x:Key="StrBrush"/>
         <conv:BoolToVisibilityConverter x:Key="BoolVis"/>
 
+        <!-- Reusable live sensor-statistics row (used beside every monitoring chart) -->
+        <DataTemplate x:Key="SignalStatTpl">
+            <Border Background="{StaticResource LightBgBrush}" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center" Margin="0,0,7,0"
+                                Background="{Binding Color, Converter={StaticResource StrBrush}}"/>
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource DarkTextBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Status}" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{Binding StatusColor, Converter={StaticResource StrBrush}}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="17,5,0,0">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Current" FontSize="8.5" Foreground="{StaticResource SubTextBrush}"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Current}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource DarkTextBrush}"/>
+                                <TextBlock Text="{Binding Unit}" FontSize="8.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Bottom" Margin="2,0,0,2"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Max" FontSize="8.5" Foreground="{StaticResource SubTextBrush}"/>
+                            <TextBlock Text="{Binding Max}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource DangerRedBrush}"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Average" FontSize="8.5" Foreground="{StaticResource SubTextBrush}"/>
+                            <TextBlock Text="{Binding Average}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource SlateBlkBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
         <Style x:Key="AnimatedPage" TargetType="Grid">
             <Style.Triggers>
                 <Trigger Property="Visibility" Value="Visible">
@@ -136,7 +168,7 @@
                         <RadioButton Style="{StaticResource NavButton}" Content="Home" Tag="&#xE80F;"
                                      IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Home, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Home"/>
-                        <RadioButton Style="{StaticResource NavButton}" Content="Charts" Tag="&#xE9D9;"
+                        <RadioButton Style="{StaticResource NavButton}" Content="Monitoring" Tag="&#xE9D9;"
                                      IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Charts, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Charts"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="History" Tag="&#xE81C;"
@@ -405,79 +437,199 @@
                             </Border>
                         </Grid>
 
-                        <!-- ==================== CHARTS PAGE ==================== -->
-                        <Grid Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Charts}"
-                              Style="{StaticResource AnimatedPage}">
+                        <!-- ==================== MACHINE MONITORING PAGE ==================== -->
+                        <Grid Visibility="{Binding DataContext.CurrentPage, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource PageVis}, ConverterParameter=Charts}"
+                              Style="{StaticResource AnimatedPage}" DataContext="{Binding Monitoring}">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6,0,0,12">
-                                <Border Width="4" Height="30" CornerRadius="2" Background="{StaticResource PrimaryAccentBrush}" Margin="0,0,10,0"/>
-                                <TextBlock Text="Machine Performance" FontSize="24" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                            </StackPanel>
+                            <!-- Header with live state badge -->
+                            <Grid Grid.Row="0" Margin="6,0,0,12">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Border Width="4" Height="34" CornerRadius="2" Background="{StaticResource PrimaryAccentBrush}" Margin="0,0,10,0"/>
+                                    <StackPanel>
+                                        <TextBlock Text="Machine Monitoring" FontSize="24" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <TextBlock Text="Live operator view — all sensor values are simulated until PLC integration"
+                                                   FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <!-- Elapsed running time -->
+                                    <Border Background="White" CornerRadius="12" Padding="16,8" Margin="0,0,10,0">
+                                        <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="1" Opacity="0.06"/></Border.Effect>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource SlateBlkBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <StackPanel>
+                                                <TextBlock Text="Operating Time" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ElapsedTime}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <!-- State badge -->
+                                    <Border CornerRadius="20" Padding="16,10" Background="{Binding StateColor, Converter={StaticResource StrBrush}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="9" Height="9" Fill="White" VerticalAlignment="Center" Margin="0,0,7,0" Opacity="0.9"/>
+                                            <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
 
-                            <!-- Timer + quick stats -->
-                            <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,8">
-                                <Border Style="{StaticResource KpiCard}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="#FFF7ED" CornerRadius="12" Width="48" Height="48" Margin="0,0,12,0">
-                                            <TextBlock Text="&#xE121;" FontFamily="Segoe MDL2 Assets" FontSize="22"
-                                                       Foreground="{StaticResource PrimaryAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="Elapsed Time" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
-                                            <TextBlock Text="{Binding TimeCounter}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                            <!-- CHART 1 — Cutting Shaft Torque (2 lines) + stats -->
+                            <Border Grid.Row="1" Style="{StaticResource Card}" Margin="6,0,6,8">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Cutting Shaft Torque"/>
+                                        <TextBlock Text="Instantaneous torque on the two primary cutting shafts. A flat line at zero indicates a stopped shaft (fault)."
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding CuttingSeries}" XAxes="{Binding TimeAxis}"
+                                                            Height="260" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="LIVE SENSOR STATISTICS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,8"/>
+                                            <ItemsControl ItemsSource="{Binding CuttingStats}" ItemTemplate="{StaticResource SignalStatTpl}"/>
                                         </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <!-- CHART 2 + CHART 3 — Production & Conveyor -->
+                            <UniformGrid Grid.Row="2" Columns="2" Margin="0,0,0,8">
+                                <!-- Production -->
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Production Rate"/>
+                                        <TextBlock Text="Cumulative slices produced over time, driven by feed rate and product size."
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
+                                        <lvc:CartesianChart Series="{Binding ProductionSeries}" XAxes="{Binding TimeAxis}"
+                                                            Height="180" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                                            <StackPanel Margin="0,0,8,6"><TextBlock Text="Current Rate (slices/min)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ProdCurrent}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource PrimaryAccentBrush}"/></StackPanel>
+                                            <StackPanel Margin="0,0,0,6"><TextBlock Text="Total Production (slices)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ProdTotal}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Avg Rate (slices/min)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ProdAvg}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource SlateBlkBrush}"/></StackPanel>
+                                            <StackPanel><TextBlock Text="Running Time" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ElapsedTime}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        </UniformGrid>
                                     </StackPanel>
                                 </Border>
-                                <Border Style="{StaticResource KpiCard}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="#F0FDF4" CornerRadius="12" Width="48" Height="48" Margin="0,0,12,0">
-                                            <TextBlock Text="&#xE9F5;" FontFamily="Segoe MDL2 Assets" FontSize="22"
-                                                       Foreground="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="Feed Velocity" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
-                                            <TextBlock Text="{Binding FeedVelocityDisplay}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                                            <TextBlock Text="m/min" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource KpiCard}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="#EFF6FF" CornerRadius="12" Width="48" Height="48" Margin="0,0,12,0">
-                                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="22"
-                                                       Foreground="{StaticResource SlateBlkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="Rotations" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
-                                            <TextBlock Text="{Binding NumberOfRotationsDisplay}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                                            <TextBlock Text="RPM" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
-                                        </StackPanel>
+                                <!-- Conveyor -->
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Conveyor Belt Speed"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6">
+                                            <Run Text="Input &amp; output belt speed. Feed speed is fixed at "/><Run Text="{Binding FeedRateText, Mode=OneWay}" FontWeight="SemiBold"/><Run Text="."/>
+                                        </TextBlock>
+                                        <lvc:CartesianChart Series="{Binding ConveyorSeries}" XAxes="{Binding TimeAxis}"
+                                                            Height="180" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <ItemsControl ItemsSource="{Binding ConveyorStats}" ItemTemplate="{StaticResource SignalStatTpl}" Margin="0,8,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
 
-                            <!-- Charts -->
-                            <UniformGrid Grid.Row="2" Columns="2">
-                                <Border Style="{StaticResource Card}">
+                            <!-- CHART 4 — Feed Shaft Torque (4 lines) + stats -->
+                            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="6,0,6,8">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Feed Shaft Torque"/>
+                                        <TextBlock Text="Torque on the four feed-shaft motors. Each shaft behaves slightly differently under load."
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding FeedSeries}" XAxes="{Binding TimeAxis}"
+                                                            Height="270" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="LIVE SENSOR STATISTICS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,8"/>
+                                            <ItemsControl ItemsSource="{Binding FeedStats}" ItemTemplate="{StaticResource SignalStatTpl}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <!-- Camera panel + machine status summary -->
+                            <Grid Grid.Row="4" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+                                <!-- Camera monitoring -->
+                                <Border Grid.Column="0" Style="{StaticResource Card}">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Simulated Shaft Torque vs Time"/>
-                                        <lvc:CartesianChart Series="{Binding TorqueSeries}" Height="320" ZoomMode="X"
-                                                            AnimationsSpeed="0:0:0.3"/>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Camera Monitoring"/>
+                                        <Border CornerRadius="12" Height="220" Margin="0,4,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                    <GradientStop Color="#1A1A2E" Offset="0"/>
+                                                    <GradientStop Color="#0F2E28" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <!-- subtle corner framing -->
+                                                <Border BorderBrush="#33FFFFFF" BorderThickness="2" CornerRadius="12" Margin="10"/>
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Border Width="64" Height="64" CornerRadius="32" Background="#22FFFFFF" HorizontalAlignment="Center">
+                                                        <TextBlock Text="&#xE722;" FontFamily="Segoe MDL2 Assets" FontSize="30" Foreground="#AACFCF"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <TextBlock Text="Camera is currently offline." Foreground="White" FontSize="14" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" Margin="0,14,0,4"/>
+                                                    <TextBlock Text="Live camera monitoring will be enabled after the Solid State Diagram is completed."
+                                                               Foreground="#7CBFB5" FontSize="10.5" HorizontalAlignment="Center" TextAlignment="Center"
+                                                               MaxWidth="320" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18" Background="#55EF4444" CornerRadius="10" Padding="8,3">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="7" Height="7" Fill="#EF4444" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                        <TextBlock Text="OFFLINE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
-                                <Border Style="{StaticResource Card}">
+
+                                <!-- Machine status summary -->
+                                <Border Grid.Column="1" Style="{StaticResource Card}">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Production Line vs Time"/>
-                                        <lvc:CartesianChart Series="{Binding ProductionSeries}" Height="320" ZoomMode="X"
-                                                            AnimationsSpeed="0:0:0.3"/>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Machine Status"/>
+                                        <Border CornerRadius="10" Padding="14,12" Margin="0,4,0,8" Background="{Binding StateColor, Converter={StaticResource StrBrush}}">
+                                            <StackPanel>
+                                                <TextBlock Text="CURRENT STATE" FontSize="9" Foreground="White" Opacity="0.85"/>
+                                                <TextBlock Text="{Binding StateText}" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <StackPanel Margin="2,0">
+                                            <Grid Margin="0,4"><TextBlock Text="Operating Time" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ElapsedTime}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" Foreground="{StaticResource DarkTextBrush}"/></Grid>
+                                            <Separator Background="#EEF1F4"/>
+                                            <Grid Margin="0,4"><TextBlock Text="Feed Rate (constant)" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding FeedRateText}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" Foreground="{StaticResource DarkTextBrush}"/></Grid>
+                                            <Separator Background="#EEF1F4"/>
+                                            <Grid Margin="0,4"><TextBlock Text="Total Production" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock HorizontalAlignment="Right" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource PrimaryAccentBrush}">
+                                                    <Run Text="{Binding ProdTotal, Mode=OneWay}"/><Run Text=" slices"/></TextBlock></Grid>
+                                            <Separator Background="#EEF1F4"/>
+                                            <Grid Margin="0,4"><TextBlock Text="Current Prod. Rate" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock HorizontalAlignment="Right" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}">
+                                                    <Run Text="{Binding ProdCurrent, Mode=OneWay}"/><Run Text=" /min"/></TextBlock></Grid>
+                                        </StackPanel>
+                                        <Border Background="#FFF7ED" CornerRadius="8" Padding="10,8" Margin="0,8,0,0">
+                                            <TextBlock Text="Control the machine from the Home page: Start, Stop and End Process drive this dashboard."
+                                                       FontSize="10" Foreground="{StaticResource PrimaryAccentBrush}" TextWrapping="Wrap"/>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
-                            </UniformGrid>
+                            </Grid>
                         </Grid>
 
                         <!-- ==================== HISTORY PAGE ==================== -->

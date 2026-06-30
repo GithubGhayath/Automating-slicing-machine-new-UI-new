@@ -86,6 +86,9 @@ namespace MR200.UI.ViewModels
         private readonly ObservableCollection<ObservablePoint> _productionPoints = new();
         private DateTime _processStartTime;
 
+        // Machine-monitoring dashboard (driven by the same Start/Stop/End controls).
+        public MonitoringViewModel Monitoring { get; } = new();
+
         public MainViewModel()
         {
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
@@ -412,12 +415,14 @@ namespace MR200.UI.ViewModels
             _productionPoints.Clear();
             _t = 0;
             _timer.Start();
+            Monitoring.Start();   // resumes from a paused state, or starts fresh after a reset
             CanStart = false; CanStop = true; CanEndProcess = true;
         }
 
         private void StopMachine()
         {
             _timer.Stop();
+            Monitoring.Pause();   // freeze everything, keep all values
             CanStart = true; CanStop = false;
         }
 
@@ -441,6 +446,7 @@ namespace MR200.UI.ViewModels
                     _SelectedWood!.Id, _machineStartsAt, DateTime.Now);
             }
             catch { }
+            Monitoring.Reset();   // clear charts, timers, totals – back to initial state
             CanEndProcess = false; CanStart = true; CanStop = false;
         }
 
