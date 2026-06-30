@@ -21,7 +21,7 @@ namespace DataAccess.Data
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             base.OnConfiguring(optionsBuilder);
-            optionsBuilder.UseSqlServer("Server=.;Database=WoodCuttingMachine_V1;Trusted_Connection=True;MultipleActiveResultSets=True;TrustServerCertificate=True");
+            optionsBuilder.UseSqlServer("Server=.;Database=WoodCuttingMachine_MR200;Trusted_Connection=True;MultipleActiveResultSets=True;TrustServerCertificate=True");
         }
     }
 }
