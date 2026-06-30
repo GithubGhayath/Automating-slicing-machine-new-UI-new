@@ -178,6 +178,10 @@ namespace MR200.UI.ViewModels
         private string _avgCostPerM3Card = "$0.00"; public string AvgCostPerM3Card { get => _avgCostPerM3Card; set => SetProperty(ref _avgCostPerM3Card, value); }
         private string _hardwoodCount = "0"; public string HardwoodCount { get => _hardwoodCount; set => SetProperty(ref _hardwoodCount, value); }
         private string _softwoodCount = "0"; public string SoftwoodCount { get => _softwoodCount; set => SetProperty(ref _softwoodCount, value); }
+
+        // Period captions describing the time span / scope each card is aggregated over.
+        private string _periodRangeText = "No data yet"; public string PeriodRangeText { get => _periodRangeText; set => SetProperty(ref _periodRangeText, value); }
+        private string _allProcessesScopeText = "All processes"; public string AllProcessesScopeText { get => _allProcessesScopeText; set => SetProperty(ref _allProcessesScopeText, value); }
         #endregion
 
         #region Inline Process Detail Panel
@@ -576,6 +580,19 @@ namespace MR200.UI.ViewModels
 
                     HardwoodCount = HistoryList.Count(x => x.WoodType.Category == DataAccess.Enums.enWoodCategory.Hardwood).ToString();
                     SoftwoodCount = HistoryList.Count(x => x.WoodType.Category == DataAccess.Enums.enWoodCategory.Softwood).ToString();
+
+                    // Period captions: the actual date span covered by the records.
+                    var firstStart = HistoryList.Min(x => x.auditTimestamp.StartAt);
+                    var lastEnd = HistoryList.Max(x => x.auditTimestamp.EndAt);
+                    PeriodRangeText = firstStart.Date == lastEnd.Date
+                        ? $"{firstStart:dd MMM yyyy}"
+                        : $"{firstStart:dd MMM yyyy}  →  {lastEnd:dd MMM yyyy}";
+                    AllProcessesScopeText = $"{HistoryList.Count} processes · {PeriodRangeText}";
+                }
+                else
+                {
+                    PeriodRangeText = "No data yet";
+                    AllProcessesScopeText = "No data yet";
                 }
 
                 BuildHistoryCharts();

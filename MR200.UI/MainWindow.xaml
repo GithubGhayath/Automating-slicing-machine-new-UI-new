@@ -529,6 +529,10 @@
                                         </Grid>
                                         <TextBlock Text="Total Fees" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding TotalFeesCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -539,6 +543,10 @@
                                         </Border>
                                         <TextBlock Text="Consumed Energy" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding ConsumedEnergyCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -549,6 +557,10 @@
                                         </Border>
                                         <TextBlock Text="Production Volume" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding ProductionVolumeCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -559,6 +571,10 @@
                                         </Border>
                                         <TextBlock Text="Total Processes" FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,8,0,2"/>
                                         <TextBlock Text="{Binding TotalProcessesCard}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding PeriodRangeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
@@ -577,6 +593,10 @@
                                                 <Run Text=" N" Foreground="{StaticResource SubTextBrush}"/>
                                             </TextBlock>
                                         </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding AllProcessesScopeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -591,6 +611,10 @@
                                                 <Run Text=" N.m" Foreground="{StaticResource SubTextBrush}"/>
                                             </TextBlock>
                                         </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding AllProcessesScopeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource KpiCard}">
@@ -604,6 +628,10 @@
                                                 <Run Text="{Binding AvgCostPerM3Card, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource SoftGoldBrush}"/>
                                             </TextBlock>
                                         </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding AllProcessesScopeText}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
