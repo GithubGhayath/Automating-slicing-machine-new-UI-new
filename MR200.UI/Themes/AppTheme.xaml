@@ -194,4 +194,26 @@
         <Setter Property="SelectionMode" Value="Single"/>
     </Style>
 
+    <!-- Rounded proportional force bar (used in the inline detail panel) -->
+    <Style x:Key="ForceProgressBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="12"/>
+        <Setter Property="Minimum" Value="0"/>
+        <Setter Property="Maximum" Value="100"/>
+        <Setter Property="Background" Value="#EEF1F4"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border CornerRadius="6" Background="{TemplateBinding Background}" ClipToBounds="True">
+                        <Grid>
+                            <Border x:Name="PART_Track"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
+                                    CornerRadius="6" Background="{TemplateBinding Foreground}"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
