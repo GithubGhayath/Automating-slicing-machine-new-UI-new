@@ -18,7 +18,7 @@ namespace MR200.UI.Converters
             return Brushes.Gray;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 
     // Bool -> Visibility (true => Visible).
@@ -27,7 +27,7 @@ namespace MR200.UI.Converters
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
             => (value is bool b && b) ? Visibility.Visible : Visibility.Collapsed;
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 
     public class PageVisibilityConverter : IValueConverter
@@ -39,7 +39,7 @@ namespace MR200.UI.Converters
             return Visibility.Collapsed;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 
     public class ActivePageConverter : IValueConverter
@@ -51,6 +51,6 @@ namespace MR200.UI.Converters
             return false;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 }

@@ -134,16 +134,16 @@
                     <!-- Nav -->
                     <StackPanel Grid.Row="1" Margin="0,6,0,0">
                         <RadioButton Style="{StaticResource NavButton}" Content="Home" Tag="&#xE80F;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Home}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Home, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Home"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="Charts" Tag="&#xE9D9;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Charts}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Charts, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Charts"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="History" Tag="&#xE81C;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=History}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=History, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="History"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="Maintenance" Tag="&#xE90F;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Maintenance}"
+                                     IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Maintenance, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Maintenance"/>
                     </StackPanel>
 
