@@ -491,8 +491,9 @@
                                     </StackPanel>
                                     <Grid Grid.Row="1">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding CuttingSeries}" XAxes="{Binding TimeAxis}"
-                                                            Height="260" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding CuttingSeries}"
+                                                            XAxes="{Binding CuttingXAxes}" YAxes="{Binding CuttingYAxes}"
+                                                            Height="260" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
                                         <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="LIVE SENSOR STATISTICS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,8"/>
                                             <ItemsControl ItemsSource="{Binding CuttingStats}" ItemTemplate="{StaticResource SignalStatTpl}"/>
@@ -509,8 +510,9 @@
                                         <TextBlock Style="{StaticResource SectionHeader}" Text="Production Rate"/>
                                         <TextBlock Text="Cumulative slices produced over time, driven by feed rate and product size."
                                                    FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
-                                        <lvc:CartesianChart Series="{Binding ProductionSeries}" XAxes="{Binding TimeAxis}"
-                                                            Height="180" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <lvc:CartesianChart Series="{Binding ProductionSeries}"
+                                                            XAxes="{Binding ProductionXAxes}" YAxes="{Binding ProductionYAxes}"
+                                                            Height="180" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
                                         <UniformGrid Columns="2" Margin="0,8,0,0">
                                             <StackPanel Margin="0,0,8,6"><TextBlock Text="Current Rate (slices/min)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
                                                 <TextBlock Text="{Binding ProdCurrent}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource PrimaryAccentBrush}"/></StackPanel>
@@ -530,8 +532,9 @@
                                         <TextBlock FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6">
                                             <Run Text="Input &amp; output belt speed. Feed speed is fixed at "/><Run Text="{Binding FeedRateText, Mode=OneWay}" FontWeight="SemiBold"/><Run Text="."/>
                                         </TextBlock>
-                                        <lvc:CartesianChart Series="{Binding ConveyorSeries}" XAxes="{Binding TimeAxis}"
-                                                            Height="180" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <lvc:CartesianChart Series="{Binding ConveyorSeries}"
+                                                            XAxes="{Binding ConveyorXAxes}" YAxes="{Binding ConveyorYAxes}"
+                                                            Height="180" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
                                         <ItemsControl ItemsSource="{Binding ConveyorStats}" ItemTemplate="{StaticResource SignalStatTpl}" Margin="0,8,0,0"/>
                                     </StackPanel>
                                 </Border>
@@ -548,8 +551,9 @@
                                     </StackPanel>
                                     <Grid Grid.Row="1">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding FeedSeries}" XAxes="{Binding TimeAxis}"
-                                                            Height="270" ZoomMode="X" LegendPosition="Bottom"/>
+                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding FeedSeries}"
+                                                            XAxes="{Binding FeedXAxes}" YAxes="{Binding FeedYAxes}"
+                                                            Height="270" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
                                         <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="LIVE SENSOR STATISTICS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,8"/>
                                             <ItemsControl ItemsSource="{Binding FeedStats}" ItemTemplate="{StaticResource SignalStatTpl}"/>

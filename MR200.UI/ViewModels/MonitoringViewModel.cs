@@ -19,11 +19,15 @@ namespace MR200.UI.ViewModels
     /// </summary>
     public sealed class MonitoringViewModel : BaseViewModel
     {
-        private const int MaxPoints = 80;          // bounded history (memory + smoothness)
-        private const double Dt = 0.25;            // seconds per tick
+        private const int MaxPoints = 140;         // bounded history (memory + smoothness)
+        private const double Dt = 0.30;            // seconds per tick (calm, smooth motion)
+        private const double WindowSeconds = 20;   // width of the visible sliding window
 
         private readonly SimulationManager _sim = new();
         private readonly DispatcherTimer _timer;
+
+        // Each chart owns its OWN axis instances (never share an Axis across charts).
+        private readonly Axis _cutX, _prodX, _convX, _feedX;
 
         // Point buffers (X = elapsed seconds).
         private readonly ObservableCollection<ObservablePoint> _cutA = new();
@@ -38,10 +42,27 @@ namespace MR200.UI.ViewModels
 
         public MonitoringViewModel()
         {
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             _timer.Tick += (_, _) => Step();
 
             BuildSeries();
+
+            // Per-chart axes. X = sliding time window; Y = fixed operating ranges
+            // so the labels never reflow (which was jittering the layout).
+            _cutX = MakeTimeAxis();
+            _prodX = MakeTimeAxis();
+            _convX = MakeTimeAxis();
+            _feedX = MakeTimeAxis();
+
+            double feed = _sim.FeedRateMetersPerMinute;
+            CuttingXAxes = new[] { _cutX };
+            CuttingYAxes = new[] { MakeValueAxis("Torque (N·m)", 0, 140) };
+            ProductionXAxes = new[] { _prodX };
+            ProductionYAxes = new[] { MakeValueAxis("Slices", 0, null) };
+            ConveyorXAxes = new[] { _convX };
+            ConveyorYAxes = new[] { MakeValueAxis("Speed (m/min)", feed - 4, feed + 4) };
+            FeedXAxes = new[] { _feedX };
+            FeedYAxes = new[] { MakeValueAxis("Torque (N·m)", 0, 60) };
 
             CuttingStats = new ObservableCollection<SignalStatRow>
             {
@@ -69,7 +90,15 @@ namespace MR200.UI.ViewModels
         public ISeries[] ProductionSeries { get; private set; } = Array.Empty<ISeries>();
         public ISeries[] ConveyorSeries { get; private set; } = Array.Empty<ISeries>();
         public ISeries[] FeedSeries { get; private set; } = Array.Empty<ISeries>();
-        public Axis[] TimeAxis { get; } = { new Axis { Name = "Time (s)", NamePaint = new SolidColorPaint(SKColor.Parse("#6B7280")), LabelsPaint = new SolidColorPaint(SKColor.Parse("#6B7280")), TextSize = 11 } };
+
+        public Axis[] CuttingXAxes { get; }
+        public Axis[] CuttingYAxes { get; }
+        public Axis[] ProductionXAxes { get; }
+        public Axis[] ProductionYAxes { get; }
+        public Axis[] ConveyorXAxes { get; }
+        public Axis[] ConveyorYAxes { get; }
+        public Axis[] FeedXAxes { get; }
+        public Axis[] FeedYAxes { get; }
         #endregion
 
         #region Live statistics
@@ -121,6 +150,13 @@ namespace MR200.UI.ViewModels
 
             ProdCurrent = "0"; ProdTotal = "0"; ProdAvg = "0";
             ElapsedTime = "00:00:00";
+
+            // Reset the visible window back to its initial 0..window position.
+            foreach (var x in new[] { _cutX, _prodX, _convX, _feedX })
+            {
+                x.MinLimit = 0;
+                x.MaxLimit = WindowSeconds;
+            }
             UpdateStateBadge();
         }
         #endregion
@@ -148,6 +184,20 @@ namespace MR200.UI.ViewModels
             ProdAvg = _sim.Production.AverageRate.ToString("F1");
 
             ElapsedTime = TimeSpan.FromSeconds(_sim.ElapsedSeconds).ToString(@"hh\:mm\:ss");
+
+            SlideWindow(t);
+        }
+
+        // Slides every chart's X window forward so the charts scroll by themselves.
+        private void SlideWindow(double t)
+        {
+            double max = Math.Max(t, WindowSeconds);
+            double min = max - WindowSeconds;
+            foreach (var x in new[] { _cutX, _prodX, _convX, _feedX })
+            {
+                x.MinLimit = min;
+                x.MaxLimit = max;
+            }
         }
 
         private static void Append(ObservableCollection<ObservablePoint> buffer, double x, double y)
@@ -176,10 +226,37 @@ namespace MR200.UI.ViewModels
                 Stroke = new SolidColorPaint(color, thickness),
                 Fill = fill ? new SolidColorPaint(color.WithAlpha(45)) : null,
                 GeometrySize = 0,
-                LineSmoothness = 0.35,
-                AnimationsSpeed = TimeSpan.FromMilliseconds(150)
+                LineSmoothness = 0.6,                              // softer curves
+                AnimationsSpeed = TimeSpan.FromMilliseconds(320)   // gentle, slower glide
             };
         }
+
+        // A time (X) axis for a single chart. Starts at 0..window and is slid forward
+        // each tick. A forced 4-second step keeps the tick labels perfectly stable.
+        private static Axis MakeTimeAxis() => new Axis
+        {
+            MinLimit = 0,
+            MaxLimit = WindowSeconds,
+            MinStep = 4,
+            ForceStepToMin = true,
+            Labeler = v => v.ToString("F0"),
+            TextSize = 11,
+            LabelsPaint = new SolidColorPaint(SKColor.Parse("#9AA3AD")),
+            SeparatorsPaint = new SolidColorPaint(SKColor.Parse("#EEF1F4")) { StrokeThickness = 1 }
+        };
+
+        // A value (Y) axis with a fixed operating range so labels never reflow.
+        private static Axis MakeValueAxis(string name, double? min, double? max) => new Axis
+        {
+            Name = name,
+            NamePaint = new SolidColorPaint(SKColor.Parse("#6B7280")),
+            NameTextSize = 12,
+            MinLimit = min,
+            MaxLimit = max,
+            TextSize = 11,
+            LabelsPaint = new SolidColorPaint(SKColor.Parse("#9AA3AD")),
+            SeparatorsPaint = new SolidColorPaint(SKColor.Parse("#EEF1F4")) { StrokeThickness = 1 }
+        };
 
         private void BuildSeries()
         {
