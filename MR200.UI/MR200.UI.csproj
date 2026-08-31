@@ -4,10 +4,22 @@
     <ProjectReference Include="..\DataAccess\DataAccess.csproj" />
   </ItemGroup>
 
+  <!-- Manufacturer catalogues attached to the maintenance alert e-mail.
+       ElementsInformation.Catalog stores just the file name; the resolver looks
+       it up here, next to the executable. -->
   <ItemGroup>
+    <Content Include="MaintenanceAssets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Apis.Gmail.v1" Version="1.75.0.4225" />
     <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.*" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
     <PackageReference Include="QuestPDF" Version="2024.*" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.9" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.11" />
   </ItemGroup>
 
   <PropertyGroup>

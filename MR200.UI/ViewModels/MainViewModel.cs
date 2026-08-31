@@ -8,9 +8,11 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using MR200.UI.Database;
+using MR200.UI.Database.Maintenance;
 using MR200.UI.Database.Utility;
 using MR200.UI.Database.Wood;
 using MR200.UI.Helpers;
+using MR200.UI.MaintenanceSystem;
 using SkiaSharp;
 
 namespace MR200.UI.ViewModels
@@ -46,6 +48,41 @@ namespace MR200.UI.ViewModels
         public string EndAt { get; set; } = "";
     }
 
+    // Current health of one monitored physical element, for the Maintenance screen.
+    public class ElementHealthRow
+    {
+        public int ElementId { get; set; }
+        public int Order { get; set; }
+        public string Element { get; set; } = "";
+        public string ElementType { get; set; } = "";
+        public string Position { get; set; } = "";
+        public string ConsumedLife { get; set; } = "";
+        public string DefaultLife { get; set; } = "";
+        public string RemainingLife { get; set; } = "";
+        public string LifeUsed { get; set; } = "";
+        public double LifeUsedPercent { get; set; }
+        public string Status { get; set; } = "Normal";
+        public string StatusColor { get; set; } = "#10B981";
+        public string LastMaintenance { get; set; } = "Never";
+        public string Price { get; set; } = "";
+    }
+
+    // One historical maintenance operation, for the Maintenance screen table.
+    public class MaintenanceHistoryRow
+    {
+        public int MaintenanceId { get; set; }
+        public int Order { get; set; }
+        public string Element { get; set; } = "";
+        public string ElementType { get; set; } = "";
+        public string Position { get; set; } = "";
+        public string MaintenanceDate { get; set; } = "";
+        public string DoneBy { get; set; } = "";
+        public string Cost { get; set; } = "";
+        public string ElementPrice { get; set; } = "";
+        public string StoppingTimeCost { get; set; } = "";
+        public string TotalCost { get; set; } = "";
+    }
+
     // One animated force bar inside the inline process-detail panel.
     public class ForceBar
     {
@@ -59,6 +96,14 @@ namespace MR200.UI.ViewModels
     {
         private readonly DispatcherTimer _timer;
         private DateTime _machineStartsAt;
+
+        // True from the first Start of a production run until End Process. Lets Start
+        // tell a resume-after-Stop apart from the beginning of a new run.
+        private bool _runInProgress;
+
+        // When the machine was last stopped, so a resume can discount the paused span.
+        private DateTime _pausedAt;
+
         private int _timerMs;
         private readonly Random _rand = new();
         private double _t;
@@ -85,6 +130,14 @@ namespace MR200.UI.ViewModels
         private readonly ObservableCollection<ObservablePoint> _torquePoints = new();
         private readonly ObservableCollection<ObservablePoint> _productionPoints = new();
         private DateTime _processStartTime;
+
+        // Machine-monitoring dashboard (driven by the same Start/Stop/End controls).
+        public MonitoringViewModel Monitoring { get; } = new();
+
+        // Predictive maintenance: tracks the life every monitored element consumes
+        // while the machine runs.
+        private readonly ElementLifeMonitoringService _lifeMonitor = new();
+        private bool _isHandlingFailure;
 
         public MainViewModel()
         {
@@ -114,6 +167,25 @@ namespace MR200.UI.ViewModels
 
             HistoryProductionSeries = Array.Empty<ISeries>();
             WoodTypePieSeries = Array.Empty<ISeries>();
+
+            // ---- Maintenance system ----
+            ElementHealthRows = new ObservableCollection<ElementHealthRow>();
+            MaintenanceRows = new ObservableCollection<MaintenanceHistoryRow>();
+
+            RecordMaintenanceCommand = new RelayCommand(OpenMaintenanceForm);
+            SaveMaintenanceCommand = new RelayCommand(_ => SaveMaintenance(), _ => CanSaveMaintenance);
+            CancelMaintenanceCommand = new RelayCommand(_ => IsMaintenanceFormVisible = false);
+            RefreshMaintenanceCommand = new RelayCommand(_ => LoadMaintenance());
+            DismissFailureAlertCommand = new RelayCommand(_ => IsFailureAlertVisible = false);
+            GoToMaintenanceFromAlertCommand = new RelayCommand(_ =>
+            {
+                IsFailureAlertVisible = false;
+                CurrentPage = "Maintenance";
+                LoadMaintenance();
+            });
+
+            _lifeMonitor.ElementFailed += OnElementFailed;
+            _lifeMonitor.MonitoringError += (_, ex) => MaintenanceStatusMessage = "Maintenance system: " + ex.Message;
 
             LoadWoodTypes();
         }
@@ -265,6 +337,7 @@ namespace MR200.UI.ViewModels
             {
                 CurrentPage = p;
                 if (p == "History") LoadHistory();
+                else if (p == "Maintenance") LoadMaintenance();
             }
         }
 
@@ -405,20 +478,49 @@ namespace MR200.UI.ViewModels
         #region Machine Control
         private void StartMachine()
         {
-            _machineStartsAt = DateTime.Now;
-            _processStartTime = DateTime.Now;
-            _timerMs = 0;
-            _torquePoints.Clear();
-            _productionPoints.Clear();
-            _t = 0;
+            if (_runInProgress && _pausedAt != default)
+            {
+                // Resuming after Stop. The monitoring dashboard and the element life
+                // counters already continue from where they were, so the machine timer
+                // must do the same. Shifting both reference times forward by however
+                // long the machine sat stopped discounts the paused span, which keeps
+                // the timer, the production chart and the recorded process duration in
+                // agreement and all measuring running time only.
+                var pausedFor = DateTime.Now - _pausedAt;
+                _machineStartsAt += pausedFor;
+                _processStartTime += pausedFor;
+            }
+            else
+            {
+                // A fresh production run: everything starts from zero.
+                _machineStartsAt = DateTime.Now;
+                _processStartTime = DateTime.Now;
+                _timerMs = 0;
+                _torquePoints.Clear();
+                _productionPoints.Clear();
+                _t = 0;
+                _runInProgress = true;
+            }
+
+            _pausedAt = default;
             _timer.Start();
+            Monitoring.Start();   // resumes from a paused state, or starts fresh after a reset
             CanStart = false; CanStop = true; CanEndProcess = true;
+
+            // RUN: load the monitored elements and their persistent ConsumedLife once,
+            // then start accumulating life against the machine's live shaft speed.
+            BeginLifeMonitoring();
         }
 
         private void StopMachine()
         {
             _timer.Stop();
+            _pausedAt = DateTime.Now;   // remember when, so Start can resume from here
+            Monitoring.Pause();   // freeze everything, keep all values
             CanStart = true; CanStop = false;
+
+            // PAUSE semantics: freeze the life counters but do NOT finalize them.
+            PauseLifeMonitoring();
         }
 
         private void EndProcess()
@@ -441,7 +543,18 @@ namespace MR200.UI.ViewModels
                     _SelectedWood!.Id, _machineStartsAt, DateTime.Now);
             }
             catch { }
+
+            // The run is finished, so the next Start begins a fresh one rather than
+            // resuming this one.
+            _runInProgress = false;
+            _pausedAt = default;
+
+            Monitoring.Reset();   // clear charts, timers, totals - back to initial state
             CanEndProcess = false; CanStart = true; CanStop = false;
+
+            // The cutting operation is complete: this is the point where the runtime
+            // life accumulation becomes part of the persistent ConsumedLife.
+            CompleteLifeMonitoringOperation();
         }
 
         private void Timer_Tick(object? sender, EventArgs e)
@@ -456,6 +569,10 @@ namespace MR200.UI.ViewModels
 
             double elapsed = (DateTime.Now - _processStartTime).TotalSeconds;
             _productionPoints.Add(new ObservablePoint(elapsed, (11.0 / 3600.0) * elapsed));
+
+            // Advance element life by real elapsed time. Guarded so a fault in the
+            // maintenance system can never disturb the existing simulation.
+            try { _lifeMonitor.Tick(); } catch { }
         }
         #endregion
 
@@ -815,6 +932,501 @@ namespace MR200.UI.ViewModels
                 }
             }
         }
+        #endregion
+
+        #region Maintenance & Predictive Maintenance
+
+        #region Maintenance Collections & Cards
+        public ObservableCollection<ElementHealthRow> ElementHealthRows { get; }
+        public ObservableCollection<MaintenanceHistoryRow> MaintenanceRows { get; }
+
+        private string _monitoredElementsCard = "0"; public string MonitoredElementsCard { get => _monitoredElementsCard; set => SetProperty(ref _monitoredElementsCard, value); }
+        private string _elementsWarningCard = "0"; public string ElementsWarningCard { get => _elementsWarningCard; set => SetProperty(ref _elementsWarningCard, value); }
+        private string _elementsCriticalCard = "0"; public string ElementsCriticalCard { get => _elementsCriticalCard; set => SetProperty(ref _elementsCriticalCard, value); }
+        private string _elementsFailedCard = "0"; public string ElementsFailedCard { get => _elementsFailedCard; set => SetProperty(ref _elementsFailedCard, value); }
+        private string _maintenanceOperationsCard = "0"; public string MaintenanceOperationsCard { get => _maintenanceOperationsCard; set => SetProperty(ref _maintenanceOperationsCard, value); }
+        private string _maintenanceTotalCostCard = "$0.00"; public string MaintenanceTotalCostCard { get => _maintenanceTotalCostCard; set => SetProperty(ref _maintenanceTotalCostCard, value); }
+        private string _healthiestElementCard = "N/A"; public string HealthiestElementCard { get => _healthiestElementCard; set => SetProperty(ref _healthiestElementCard, value); }
+        private string _worstElementCard = "N/A"; public string WorstElementCard { get => _worstElementCard; set => SetProperty(ref _worstElementCard, value); }
+        private string _worstElementDetail = ""; public string WorstElementDetail { get => _worstElementDetail; set => SetProperty(ref _worstElementDetail, value); }
+
+        private string _warningThresholdText = "80%"; public string WarningThresholdText { get => _warningThresholdText; set => SetProperty(ref _warningThresholdText, value); }
+        private string _maintenanceStatusMessage = ""; public string MaintenanceStatusMessage { get => _maintenanceStatusMessage; set => SetProperty(ref _maintenanceStatusMessage, value); }
+        private string _emailConfigStatus = ""; public string EmailConfigStatus { get => _emailConfigStatus; set => SetProperty(ref _emailConfigStatus, value); }
+        private bool _isEmailConfigured; public bool IsEmailConfigured { get => _isEmailConfigured; set => SetProperty(ref _isEmailConfigured, value); }
+        #endregion
+
+        #region Maintenance Commands
+        public RelayCommand RecordMaintenanceCommand { get; }
+        public RelayCommand SaveMaintenanceCommand { get; }
+        public RelayCommand CancelMaintenanceCommand { get; }
+        public RelayCommand RefreshMaintenanceCommand { get; }
+        public RelayCommand DismissFailureAlertCommand { get; }
+        public RelayCommand GoToMaintenanceFromAlertCommand { get; }
+        #endregion
+
+        #region Record-Maintenance Form
+        private bool _isMaintenanceFormVisible; public bool IsMaintenanceFormVisible { get => _isMaintenanceFormVisible; set => SetProperty(ref _isMaintenanceFormVisible, value); }
+        private int _maintenanceElementId;
+        private string _maintenanceElementName = ""; public string MaintenanceElementName { get => _maintenanceElementName; set => SetProperty(ref _maintenanceElementName, value); }
+        private string _maintenanceElementPosition = ""; public string MaintenanceElementPosition { get => _maintenanceElementPosition; set => SetProperty(ref _maintenanceElementPosition, value); }
+        private string _maintenanceDoneBy = ""; public string MaintenanceDoneBy { get => _maintenanceDoneBy; set { SetProperty(ref _maintenanceDoneBy, value); OnPropertyChanged(nameof(CanSaveMaintenance)); CommandManager.InvalidateRequerySuggested(); } }
+        private string _maintenanceCost = "0"; public string MaintenanceCost { get => _maintenanceCost; set => SetProperty(ref _maintenanceCost, value); }
+        private string _maintenanceElementPrice = "0"; public string MaintenanceElementPrice { get => _maintenanceElementPrice; set => SetProperty(ref _maintenanceElementPrice, value); }
+        private string _maintenanceStoppingTimeCost = "0"; public string MaintenanceStoppingTimeCost { get => _maintenanceStoppingTimeCost; set => SetProperty(ref _maintenanceStoppingTimeCost, value); }
+        private bool _maintenanceResetLife = true; public bool MaintenanceResetLife { get => _maintenanceResetLife; set => SetProperty(ref _maintenanceResetLife, value); }
+        private string _maintenanceFormError = ""; public string MaintenanceFormError { get => _maintenanceFormError; set => SetProperty(ref _maintenanceFormError, value); }
+
+        public bool CanSaveMaintenance => !string.IsNullOrWhiteSpace(MaintenanceDoneBy);
+        #endregion
+
+        #region Failure Alert
+        private bool _isFailureAlertVisible; public bool IsFailureAlertVisible { get => _isFailureAlertVisible; set => SetProperty(ref _isFailureAlertVisible, value); }
+        private string _failureElementName = ""; public string FailureElementName { get => _failureElementName; set => SetProperty(ref _failureElementName, value); }
+        private string _failureElementBadge = ""; public string FailureElementBadge { get => _failureElementBadge; set => SetProperty(ref _failureElementBadge, value); }
+        private string _failurePosition = ""; public string FailurePosition { get => _failurePosition; set => SetProperty(ref _failurePosition, value); }
+        private string _failureDefaultLife = ""; public string FailureDefaultLife { get => _failureDefaultLife; set => SetProperty(ref _failureDefaultLife, value); }
+        private string _failureConsumedLife = ""; public string FailureConsumedLife { get => _failureConsumedLife; set => SetProperty(ref _failureConsumedLife, value); }
+        private string _failureRemainingLife = ""; public string FailureRemainingLife { get => _failureRemainingLife; set => SetProperty(ref _failureRemainingLife, value); }
+        private string _failureLifeUsed = ""; public string FailureLifeUsed { get => _failureLifeUsed; set => SetProperty(ref _failureLifeUsed, value); }
+        private string _failureElementPrice = ""; public string FailureElementPrice { get => _failureElementPrice; set => SetProperty(ref _failureElementPrice, value); }
+        private string _failureMachineRuntime = ""; public string FailureMachineRuntime { get => _failureMachineRuntime; set => SetProperty(ref _failureMachineRuntime, value); }
+        private string _failureMachineSpeed = ""; public string FailureMachineSpeed { get => _failureMachineSpeed; set => SetProperty(ref _failureMachineSpeed, value); }
+        private string _failureProduction = ""; public string FailureProduction { get => _failureProduction; set => SetProperty(ref _failureProduction, value); }
+        private string _failureEnergy = ""; public string FailureEnergy { get => _failureEnergy; set => SetProperty(ref _failureEnergy, value); }
+        private string _failureDetectedAt = ""; public string FailureDetectedAt { get => _failureDetectedAt; set => SetProperty(ref _failureDetectedAt, value); }
+        private string _failureEmailStatus = ""; public string FailureEmailStatus { get => _failureEmailStatus; set => SetProperty(ref _failureEmailStatus, value); }
+        private string _failureEmailColor = "#C89B3C"; public string FailureEmailColor { get => _failureEmailColor; set => SetProperty(ref _failureEmailColor, value); }
+        private string _failureApproachingSummary = ""; public string FailureApproachingSummary { get => _failureApproachingSummary; set => SetProperty(ref _failureApproachingSummary, value); }
+        #endregion
+
+        // ------------------------------------------------------------------
+        // Life-monitoring hooks called from the existing machine controls.
+        // Each one is guarded so the maintenance system can never break RUN/STOP.
+        // ------------------------------------------------------------------
+
+        private void BeginLifeMonitoring()
+        {
+            try
+            {
+                _lifeMonitor.BeginRun(_NumberOfRotationsInRPM);
+                RefreshEmailConfigurationStatus();
+            }
+            catch (Exception ex)
+            {
+                MaintenanceStatusMessage = "Could not start element life monitoring: " + ex.Message;
+            }
+        }
+
+        private void PauseLifeMonitoring()
+        {
+            try { _lifeMonitor.Pause(); } catch { }
+        }
+
+        private void CompleteLifeMonitoringOperation()
+        {
+            try
+            {
+                bool persisted = _lifeMonitor.CompleteOperation();
+                MaintenanceStatusMessage = persisted
+                    ? "Element life saved for the completed operation."
+                    : "Element life could not be saved for the completed operation.";
+
+                if (CurrentPage == "Maintenance") LoadMaintenance();
+            }
+            catch (Exception ex)
+            {
+                MaintenanceStatusMessage = "Could not save element life: " + ex.Message;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Failure handling
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Raised once, on the UI thread, when an element reaches its rated life.
+        /// Stops the machine through the application's existing stop path, makes the
+        /// failure durable, then raises the alert and sends the e-mail.
+        /// </summary>
+        private void OnElementFailed(object? sender, ElementFailureEventArgs e)
+        {
+            if (_isHandlingFailure) return;
+            _isHandlingFailure = true;
+
+            try
+            {
+                var failed = e.FailedElement;
+                double consumedAtFailure = failed.TotalConsumedLife;
+
+                // 1. Stop the machine exactly as pressing the existing Stop button does.
+                StopMachine();
+
+                // 2. Make the failure and the life that caused it durable.
+                _lifeMonitor.PersistAccumulatedLife();
+                _lifeMonitor.PersistFailureFlag(failed.ElementId);
+
+                // 3. Capture the machine's condition at the moment of failure.
+                var snapshot = CaptureMachineState();
+
+                // 4. Raise the on-screen alert immediately.
+                ShowFailureAlert(failed, consumedAtFailure, snapshot);
+
+                // 5. Gather history and send the e-mail without blocking the UI.
+                _ = DispatchFailureEmailAsync(failed, consumedAtFailure, snapshot);
+
+                if (CurrentPage == "Maintenance") LoadMaintenance();
+            }
+            catch (Exception ex)
+            {
+                MaintenanceStatusMessage = "Failure handling error: " + ex.Message;
+            }
+            finally
+            {
+                _isHandlingFailure = false;
+            }
+        }
+
+        /// <summary>
+        /// Machine condition at failure, built from the values the application already
+        /// calculates - nothing here is recomputed independently.
+        /// </summary>
+        private MachineStateSnapshot CaptureMachineState()
+        {
+            double runtimeHours = TimeSpan.FromMilliseconds(_timerMs).TotalHours;
+
+            // Production volume: the application's own volumetric production rate
+            // (shown on the Home panel as "Volumetric rate [m3/hr]") over the runtime.
+            double production = _VolumetricProductionRateMeter3Hour * runtimeHours;
+
+            // Electricity: the same expression the End Process path uses in Binder.
+            double energy = 0;
+            try { energy = Utility.ElectrcityPricePerKiloWatt * runtimeHours; } catch { }
+
+            return new MachineStateSnapshot
+            {
+                MachineStatus = "STOPPED - automatic maintenance stop",
+                ProductionState = "Cutting operation interrupted by end-of-life detection",
+                MachineRuntime = TimeCounter,
+                MachineRuntimeInHours = runtimeHours,
+                ProductionQuantityInCubicMeter = production,
+                ConsumedElectricity = energy,
+                MachineSpeedInRPM = _NumberOfRotationsInRPM,
+                WoodType = _SelectedWood != null ? $"{_SelectedWood.Type} ({_SelectedWood.Category})" : "N/A",
+                FailureDetectedAt = DateTime.Now
+            };
+        }
+
+        private void ShowFailureAlert(MonitoredElement failed, double consumedAtFailure, MachineStateSnapshot state)
+        {
+            FailureElementName = failed.TypeName;
+            FailureElementBadge = "#" + failed.OrderOfElementAtMachine;
+            FailurePosition = failed.Description;
+            FailureDefaultLife = $"{failed.DefaultLife:N0} {failed.UnitLabel}";
+            FailureConsumedLife = $"{consumedAtFailure:N0} {failed.UnitLabel}";
+            FailureRemainingLife = $"{Math.Max(0, failed.DefaultLife - consumedAtFailure):N0} {failed.UnitLabel}";
+            FailureLifeUsed = failed.DefaultLife > 0
+                ? (consumedAtFailure / failed.DefaultLife * 100.0).ToString("F2") + "%"
+                : "N/A";
+            FailureElementPrice = failed.Price.ToString("C");
+
+            FailureMachineRuntime = state.MachineRuntime;
+            FailureMachineSpeed = $"{state.MachineSpeedInRPM:F1} RPM";
+            FailureProduction = $"{state.ProductionQuantityInCubicMeter:F4} m³";
+            FailureEnergy = $"{state.ConsumedElectricity:F4} kWh";
+            FailureDetectedAt = state.FailureDetectedAt.ToString("dddd dd MMM yyyy  HH:mm:ss");
+
+            var approaching = _lifeMonitor.GetElementsApproachingFailure(failed.ElementId);
+            FailureApproachingSummary = approaching.Count == 0
+                ? $"No other element has passed the {MaintenanceSettings.WarningThresholdPercent:F0}% warning threshold."
+                : $"{approaching.Count} other element(s) are above the {MaintenanceSettings.WarningThresholdPercent:F0}% warning threshold - worst: "
+                  + $"{approaching[0].TypeName} #{approaching[0].OrderOfElementAtMachine} at {approaching[0].LifeUsedPercentage:F2}%.";
+
+            FailureEmailStatus = "Preparing maintenance alert e-mail...";
+            FailureEmailColor = "#C89B3C";
+            IsFailureAlertVisible = true;
+        }
+
+        /// <summary>
+        /// Builds the alert context from the database and sends the e-mail. Any failure
+        /// here is reported on the alert but never undoes the detection or the stop.
+        /// </summary>
+        private async Task DispatchFailureEmailAsync(MonitoredElement failed,
+            double consumedAtFailure, MachineStateSnapshot state)
+        {
+            try
+            {
+                int windowDays = MaintenanceSettings.MaintenanceHistoryWindowInDays;
+                var approaching = _lifeMonitor.GetElementsApproachingFailure(failed.ElementId);
+
+                var context = await Task.Run(() =>
+                {
+                    List<DataAccess.Entities.Maintenance> recent;
+                    DataAccess.Entities.Maintenance? lastGeneral;
+
+                    try { recent = MaintenanceCRUD.GetMaintenanceForElementSince(failed.ElementId, DateTime.Now.AddDays(-windowDays)); }
+                    catch { recent = new List<DataAccess.Entities.Maintenance>(); }
+
+                    try { lastGeneral = MaintenanceCRUD.GetLastMachineMaintenance(); }
+                    catch { lastGeneral = null; }
+
+                    return new MaintenanceAlertContext
+                    {
+                        FailedElement = failed,
+                        ConsumedLifeAtFailure = consumedAtFailure,
+                        MachineState = state,
+                        ElementsApproachingFailure = approaching,
+                        FailedElementRecentMaintenance = recent,
+                        LastMachineMaintenance = lastGeneral,
+                        MaintenanceHistoryWindowInDays = windowDays,
+                        WarningThresholdPercent = MaintenanceSettings.WarningThresholdPercent
+                    };
+                }).ConfigureAwait(true);
+
+                FailureEmailStatus = "Sending maintenance alert to " + MaintenanceSettings.Recipient + "...";
+
+                var result = await MaintenanceEmailService.SendFailureAlertAsync(context).ConfigureAwait(true);
+
+                if (result.Sent)
+                {
+                    FailureEmailColor = "#10B981";
+                    FailureEmailStatus = result.Message
+                        + (result.CatalogAttached ? " Catalogue attached." : " Catalogue unavailable.")
+                        + (result.ElementImageAttached ? " Element picture attached." : " Element picture unavailable.");
+                }
+                else
+                {
+                    FailureEmailColor = "#EF4444";
+                    FailureEmailStatus = result.Message
+                        + (result.SavedCopyPath != null ? " A copy was saved to " + result.SavedCopyPath : "");
+                }
+
+                MaintenanceStatusMessage = FailureEmailStatus;
+            }
+            catch (Exception ex)
+            {
+                FailureEmailColor = "#EF4444";
+                FailureEmailStatus = "Maintenance alert could not be generated: " + ex.Message;
+                MaintenanceStatusMessage = FailureEmailStatus;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Maintenance screen
+        // ------------------------------------------------------------------
+
+        private void LoadMaintenance()
+        {
+            RefreshEmailConfigurationStatus();
+            WarningThresholdText = MaintenanceSettings.WarningThresholdPercent.ToString("F0") + "%";
+
+            LoadElementHealth();
+            LoadMaintenanceHistory();
+        }
+
+        /// <summary>
+        /// Current health of every monitored element. While a production operation is
+        /// in progress the live in-memory counters are used, so the screen shows the
+        /// life being consumed right now; otherwise the persisted values are read.
+        /// </summary>
+        private void LoadElementHealth()
+        {
+            try
+            {
+                var lastMaintenanceByElement = new Dictionary<int, DateTime>();
+                try
+                {
+                    foreach (var record in MaintenanceCRUD.GetMaintenanceHistory())
+                    {
+                        if (!lastMaintenanceByElement.TryGetValue(record.ElementId, out var existing) ||
+                            record.MaintenanceDate > existing)
+                        {
+                            lastMaintenanceByElement[record.ElementId] = record.MaintenanceDate;
+                        }
+                    }
+                }
+                catch { }
+
+                List<MonitoredElement> elements;
+                if (_lifeMonitor.Elements.Count > 0)
+                {
+                    elements = _lifeMonitor.Elements.ToList();
+                }
+                else
+                {
+                    elements = MaintenanceCRUD.GetMonitoredElements()
+                        .Select(e => new MonitoredElement(e))
+                        .ToList();
+                }
+
+                ElementHealthRows.Clear();
+                foreach (var element in elements.OrderBy(e => e.OrderOfElementAtMachine))
+                {
+                    var status = element.HealthStatus;
+                    ElementHealthRows.Add(new ElementHealthRow
+                    {
+                        ElementId = element.ElementId,
+                        Order = element.OrderOfElementAtMachine,
+                        Element = $"{element.TypeName} #{element.OrderOfElementAtMachine}",
+                        ElementType = element.TypeName,
+                        Position = element.Description,
+                        ConsumedLife = $"{element.TotalConsumedLife:N0}",
+                        DefaultLife = $"{element.DefaultLife:N0}",
+                        RemainingLife = $"{element.RemainingLife:N0}",
+                        LifeUsed = $"{element.LifeUsedPercentage:F4}%",
+                        LifeUsedPercent = Math.Min(100, element.LifeUsedPercentage),
+                        Status = status.ToString(),
+                        StatusColor = StatusColour(status),
+                        Price = element.Price.ToString("C"),
+                        LastMaintenance = lastMaintenanceByElement.TryGetValue(element.ElementId, out var when)
+                            ? when.ToString("yyyy-MM-dd HH:mm")
+                            : "Never"
+                    });
+                }
+
+                MonitoredElementsCard = ElementHealthRows.Count.ToString();
+                ElementsWarningCard = ElementHealthRows.Count(r => r.Status == "Warning").ToString();
+                ElementsCriticalCard = ElementHealthRows.Count(r => r.Status == "Critical").ToString();
+                ElementsFailedCard = ElementHealthRows.Count(r => r.Status == "Failed").ToString();
+
+                if (ElementHealthRows.Count > 0)
+                {
+                    var worst = ElementHealthRows.OrderByDescending(r => r.LifeUsedPercent).First();
+                    var best = ElementHealthRows.OrderBy(r => r.LifeUsedPercent).First();
+                    WorstElementCard = worst.Element;
+                    WorstElementDetail = $"{worst.LifeUsed} of expected life used";
+                    HealthiestElementCard = best.Element;
+                }
+            }
+            catch (Exception ex)
+            {
+                MaintenanceStatusMessage = "Could not load element health: " + ex.Message;
+            }
+        }
+
+        private void LoadMaintenanceHistory()
+        {
+            try
+            {
+                var records = MaintenanceCRUD.GetMaintenanceHistory();
+
+                MaintenanceRows.Clear();
+                foreach (var record in records)
+                {
+                    var element = record.Element;
+                    var info = element?.ElementInformation;
+
+                    MaintenanceRows.Add(new MaintenanceHistoryRow
+                    {
+                        MaintenanceId = record.Id,
+                        Order = element?.OrderOfElementAtMachine ?? 0,
+                        Element = info != null ? $"{info.Name} #{element!.OrderOfElementAtMachine}" : "N/A",
+                        ElementType = info?.Name ?? "N/A",
+                        Position = element?.Description ?? "N/A",
+                        MaintenanceDate = record.MaintenanceDate.ToString("yyyy-MM-dd HH:mm"),
+                        DoneBy = record.DoneBy,
+                        Cost = record.Cost.ToString("C"),
+                        ElementPrice = record.ElementPrice.ToString("C"),
+                        StoppingTimeCost = record.StoppingTimeCost.ToString("C"),
+                        TotalCost = record.TotalCost.ToString("C")
+                    });
+                }
+
+                MaintenanceOperationsCard = records.Count.ToString();
+                MaintenanceTotalCostCard = records.Sum(r => r.TotalCost).ToString("C");
+            }
+            catch (Exception ex)
+            {
+                MaintenanceStatusMessage = "Could not load maintenance history: " + ex.Message;
+            }
+        }
+
+        private static string StatusColour(DataAccess.Enums.enElementHealthStatus status) => status switch
+        {
+            DataAccess.Enums.enElementHealthStatus.Failed => "#EF4444",
+            DataAccess.Enums.enElementHealthStatus.Critical => "#E05C1A",
+            DataAccess.Enums.enElementHealthStatus.Warning => "#C89B3C",
+            _ => "#10B981"
+        };
+
+        private void RefreshEmailConfigurationStatus()
+        {
+            IsEmailConfigured = MaintenanceSettings.AreCredentialsConfigured;
+            EmailConfigStatus = MaintenanceSettings.AreCredentialsConfigured
+                ? "Maintenance alerts will be sent to " + MaintenanceSettings.Recipient + "."
+                : MaintenanceSettings.CredentialStatusMessage;
+        }
+
+        // ------------------------------------------------------------------
+        // Recording a maintenance / replacement operation
+        // ------------------------------------------------------------------
+
+        private void OpenMaintenanceForm(object? parameter)
+        {
+            if (parameter is not int elementId) return;
+
+            var row = ElementHealthRows.FirstOrDefault(r => r.ElementId == elementId);
+            if (row == null) return;
+
+            _maintenanceElementId = elementId;
+            MaintenanceElementName = row.Element;
+            MaintenanceElementPosition = row.Position;
+            MaintenanceDoneBy = "";
+            MaintenanceCost = "0";
+            MaintenanceElementPrice = row.Price.Replace("$", "").Replace(",", "").Trim();
+            MaintenanceStoppingTimeCost = "0";
+            MaintenanceResetLife = true;
+            MaintenanceFormError = "";
+            IsMaintenanceFormVisible = true;
+        }
+
+        private void SaveMaintenance()
+        {
+            if (!CanSaveMaintenance)
+            {
+                MaintenanceFormError = "Please enter who performed the maintenance.";
+                return;
+            }
+
+            if (!TryParseAmount(MaintenanceCost, out double cost) ||
+                !TryParseAmount(MaintenanceElementPrice, out double elementPrice) ||
+                !TryParseAmount(MaintenanceStoppingTimeCost, out double stoppingCost))
+            {
+                MaintenanceFormError = "Costs must be numeric values.";
+                return;
+            }
+
+            try
+            {
+                MaintenanceCRUD.RecordMaintenance(_maintenanceElementId, MaintenanceDoneBy.Trim(),
+                    cost, elementPrice, stoppingCost, DateTime.Now, MaintenanceResetLife);
+
+                // The persisted counters changed underneath the running session, so drop
+                // it: the next RUN reloads the corrected values from the database.
+                _lifeMonitor.InvalidateSession();
+
+                IsMaintenanceFormVisible = false;
+                MaintenanceStatusMessage = MaintenanceResetLife
+                    ? $"Maintenance recorded for {MaintenanceElementName}. Consumed life reset to 0."
+                    : $"Maintenance recorded for {MaintenanceElementName}.";
+
+                LoadMaintenance();
+            }
+            catch (Exception ex)
+            {
+                MaintenanceFormError = "Could not save the maintenance record: " + ex.Message;
+            }
+        }
+
+        private static bool TryParseAmount(string? text, out double value)
+        {
+            if (string.IsNullOrWhiteSpace(text)) { value = 0; return true; }
+            text = text.Replace("$", "").Replace(",", "").Trim();
+            return double.TryParse(text, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out value)
+                || double.TryParse(text, out value);
+        }
+
         #endregion
     }
 }

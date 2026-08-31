@@ -37,6 +37,14 @@ namespace DataAccess.Data
                 context.OperationsProcesses.AddRange(SeedData.GetOperationsProcesses());
                 context.SaveChanges();
             }
+
+            // The 16 monitored maintenance elements cascade-insert their own
+            // ElementInformation record through the one-to-one navigation property.
+            if (!context.Elements.Any())
+            {
+                context.Elements.AddRange(MaintenanceSeedData.GetElements());
+                context.SaveChanges();
+            }
         }
     }
 }
