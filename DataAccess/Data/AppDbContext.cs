@@ -12,6 +12,11 @@ namespace DataAccess.Data
         public DbSet<OperationCondition> OperationConditions { get; set; }
         public DbSet<ConstantValue> ConstantValues { get; set; }
 
+        // Maintenance / predictive-maintenance system.
+        public DbSet<Element> Elements { get; set; }
+        public DbSet<ElementInformation> ElementsInformation { get; set; }
+        public DbSet<Maintenance> Maintenance { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

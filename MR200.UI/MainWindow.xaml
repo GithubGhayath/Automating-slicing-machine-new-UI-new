@@ -22,6 +22,40 @@
         <conv:ActivePageConverter x:Key="ActivePage"/>
         <conv:StringToBrushConverter x:Key="StrBrush"/>
         <conv:BoolToVisibilityConverter x:Key="BoolVis"/>
+        <conv:ZeroToVisibleConverter x:Key="ZeroToVisible"/>
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolVis"/>
+
+        <!-- Reusable live sensor-statistics row (used beside every monitoring chart) -->
+        <DataTemplate x:Key="SignalStatTpl">
+            <Border Background="{StaticResource LightBgBrush}" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center" Margin="0,0,7,0"
+                                Background="{Binding Color, Converter={StaticResource StrBrush}}"/>
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource DarkTextBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Status}" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{Binding StatusColor, Converter={StaticResource StrBrush}}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="17,5,0,0">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Current" FontSize="8.5" Foreground="{StaticResource SubTextBrush}"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Current}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource DarkTextBrush}"/>
+                                <TextBlock Text="{Binding Unit}" FontSize="8.5" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Bottom" Margin="2,0,0,2"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Max" FontSize="8.5" Foreground="{StaticResource SubTextBrush}"/>
+                            <TextBlock Text="{Binding Max}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource DangerRedBrush}"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Average" FontSize="8.5" Foreground="{StaticResource SubTextBrush}"/>
+                            <TextBlock Text="{Binding Average}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource SlateBlkBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
 
         <Style x:Key="AnimatedPage" TargetType="Grid">
             <Style.Triggers>
@@ -136,7 +170,7 @@
                         <RadioButton Style="{StaticResource NavButton}" Content="Home" Tag="&#xE80F;"
                                      IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Home, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Home"/>
-                        <RadioButton Style="{StaticResource NavButton}" Content="Charts" Tag="&#xE9D9;"
+                        <RadioButton Style="{StaticResource NavButton}" Content="Monitoring" Tag="&#xE9D9;"
                                      IsChecked="{Binding CurrentPage, Converter={StaticResource ActivePage}, ConverterParameter=Charts, Mode=OneWay}"
                                      Command="{Binding NavigateCommand}" CommandParameter="Charts"/>
                         <RadioButton Style="{StaticResource NavButton}" Content="History" Tag="&#xE81C;"
@@ -405,79 +439,203 @@
                             </Border>
                         </Grid>
 
-                        <!-- ==================== CHARTS PAGE ==================== -->
-                        <Grid Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Charts}"
-                              Style="{StaticResource AnimatedPage}">
+                        <!-- ==================== MACHINE MONITORING PAGE ==================== -->
+                        <Grid Visibility="{Binding DataContext.CurrentPage, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource PageVis}, ConverterParameter=Charts}"
+                              Style="{StaticResource AnimatedPage}" DataContext="{Binding Monitoring}">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6,0,0,12">
-                                <Border Width="4" Height="30" CornerRadius="2" Background="{StaticResource PrimaryAccentBrush}" Margin="0,0,10,0"/>
-                                <TextBlock Text="Machine Performance" FontSize="24" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                            </StackPanel>
+                            <!-- Header with live state badge -->
+                            <Grid Grid.Row="0" Margin="6,0,0,12">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Border Width="4" Height="34" CornerRadius="2" Background="{StaticResource PrimaryAccentBrush}" Margin="0,0,10,0"/>
+                                    <StackPanel>
+                                        <TextBlock Text="Machine Monitoring" FontSize="24" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <TextBlock Text="Live operator view — all sensor values are simulated until PLC integration"
+                                                   FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <!-- Elapsed running time -->
+                                    <Border Background="White" CornerRadius="12" Padding="16,8" Margin="0,0,10,0">
+                                        <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="1" Opacity="0.06"/></Border.Effect>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource SlateBlkBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <StackPanel>
+                                                <TextBlock Text="Operating Time" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ElapsedTime}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <!-- State badge -->
+                                    <Border CornerRadius="20" Padding="16,10" Background="{Binding StateColor, Converter={StaticResource StrBrush}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="9" Height="9" Fill="White" VerticalAlignment="Center" Margin="0,0,7,0" Opacity="0.9"/>
+                                            <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
 
-                            <!-- Timer + quick stats -->
-                            <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,8">
-                                <Border Style="{StaticResource KpiCard}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="#FFF7ED" CornerRadius="12" Width="48" Height="48" Margin="0,0,12,0">
-                                            <TextBlock Text="&#xE121;" FontFamily="Segoe MDL2 Assets" FontSize="22"
-                                                       Foreground="{StaticResource PrimaryAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="Elapsed Time" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
-                                            <TextBlock Text="{Binding TimeCounter}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                            <!-- CHART 1 — Cutting Shaft Torque (2 lines) + stats -->
+                            <Border Grid.Row="1" Style="{StaticResource Card}" Margin="6,0,6,8">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Cutting Shaft Torque"/>
+                                        <TextBlock Text="Instantaneous torque on the two primary cutting shafts. A flat line at zero indicates a stopped shaft (fault)."
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding CuttingSeries}"
+                                                            XAxes="{Binding CuttingXAxes}" YAxes="{Binding CuttingYAxes}"
+                                                            Height="260" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
+                                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="LIVE SENSOR STATISTICS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,8"/>
+                                            <ItemsControl ItemsSource="{Binding CuttingStats}" ItemTemplate="{StaticResource SignalStatTpl}"/>
                                         </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <!-- CHART 2 + CHART 3 — Production & Conveyor -->
+                            <UniformGrid Grid.Row="2" Columns="2" Margin="0,0,0,8">
+                                <!-- Production -->
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Production Rate"/>
+                                        <TextBlock Text="Cumulative slices produced over time, driven by feed rate and product size."
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
+                                        <lvc:CartesianChart Series="{Binding ProductionSeries}"
+                                                            XAxes="{Binding ProductionXAxes}" YAxes="{Binding ProductionYAxes}"
+                                                            Height="180" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
+                                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                                            <StackPanel Margin="0,0,8,6"><TextBlock Text="Current Rate (slices/min)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ProdCurrent}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource PrimaryAccentBrush}"/></StackPanel>
+                                            <StackPanel Margin="0,0,0,6"><TextBlock Text="Total Production (slices)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ProdTotal}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Avg Rate (slices/min)" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ProdAvg}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource SlateBlkBrush}"/></StackPanel>
+                                            <StackPanel><TextBlock Text="Running Time" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ElapsedTime}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource DarkTextBrush}"/></StackPanel>
+                                        </UniformGrid>
                                     </StackPanel>
                                 </Border>
-                                <Border Style="{StaticResource KpiCard}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="#F0FDF4" CornerRadius="12" Width="48" Height="48" Margin="0,0,12,0">
-                                            <TextBlock Text="&#xE9F5;" FontFamily="Segoe MDL2 Assets" FontSize="22"
-                                                       Foreground="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="Feed Velocity" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
-                                            <TextBlock Text="{Binding FeedVelocityDisplay}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                                            <TextBlock Text="m/min" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource KpiCard}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="#EFF6FF" CornerRadius="12" Width="48" Height="48" Margin="0,0,12,0">
-                                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="22"
-                                                       Foreground="{StaticResource SlateBlkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="Rotations" FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
-                                            <TextBlock Text="{Binding NumberOfRotationsDisplay}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
-                                            <TextBlock Text="RPM" FontSize="9" Foreground="{StaticResource SubTextBrush}"/>
-                                        </StackPanel>
+                                <!-- Conveyor -->
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Conveyor Belt Speed"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6">
+                                            <Run Text="Input &amp; output belt speed. Feed speed is fixed at "/><Run Text="{Binding FeedRateText, Mode=OneWay}" FontWeight="SemiBold"/><Run Text="."/>
+                                        </TextBlock>
+                                        <lvc:CartesianChart Series="{Binding ConveyorSeries}"
+                                                            XAxes="{Binding ConveyorXAxes}" YAxes="{Binding ConveyorYAxes}"
+                                                            Height="180" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
+                                        <ItemsControl ItemsSource="{Binding ConveyorStats}" ItemTemplate="{StaticResource SignalStatTpl}" Margin="0,8,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
 
-                            <!-- Charts -->
-                            <UniformGrid Grid.Row="2" Columns="2">
-                                <Border Style="{StaticResource Card}">
+                            <!-- CHART 4 — Feed Shaft Torque (4 lines) + stats -->
+                            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="6,0,6,8">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Feed Shaft Torque"/>
+                                        <TextBlock Text="Torque on the four feed-shaft motors. Each shaft behaves slightly differently under load."
+                                                   FontSize="10" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <lvc:CartesianChart Grid.Column="0" Series="{Binding FeedSeries}"
+                                                            XAxes="{Binding FeedXAxes}" YAxes="{Binding FeedYAxes}"
+                                                            Height="270" ZoomMode="None" TooltipPosition="Hidden" LegendPosition="Bottom"/>
+                                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="LIVE SENSOR STATISTICS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,8"/>
+                                            <ItemsControl ItemsSource="{Binding FeedStats}" ItemTemplate="{StaticResource SignalStatTpl}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <!-- Camera panel + machine status summary -->
+                            <Grid Grid.Row="4" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+                                <!-- Camera monitoring -->
+                                <Border Grid.Column="0" Style="{StaticResource Card}">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Simulated Shaft Torque vs Time"/>
-                                        <lvc:CartesianChart Series="{Binding TorqueSeries}" Height="320" ZoomMode="X"
-                                                            AnimationsSpeed="0:0:0.3"/>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Camera Monitoring"/>
+                                        <Border CornerRadius="12" Height="220" Margin="0,4,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                    <GradientStop Color="#1A1A2E" Offset="0"/>
+                                                    <GradientStop Color="#0F2E28" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <!-- subtle corner framing -->
+                                                <Border BorderBrush="#33FFFFFF" BorderThickness="2" CornerRadius="12" Margin="10"/>
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Border Width="64" Height="64" CornerRadius="32" Background="#22FFFFFF" HorizontalAlignment="Center">
+                                                        <TextBlock Text="&#xE722;" FontFamily="Segoe MDL2 Assets" FontSize="30" Foreground="#AACFCF"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <TextBlock Text="Camera is currently offline." Foreground="White" FontSize="14" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" Margin="0,14,0,4"/>
+                                                    <TextBlock Text="Live camera monitoring will be enabled after the Solid State Diagram is completed."
+                                                               Foreground="#7CBFB5" FontSize="10.5" HorizontalAlignment="Center" TextAlignment="Center"
+                                                               MaxWidth="320" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18" Background="#55EF4444" CornerRadius="10" Padding="8,3">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="7" Height="7" Fill="#EF4444" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                        <TextBlock Text="OFFLINE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
-                                <Border Style="{StaticResource Card}">
+
+                                <!-- Machine status summary -->
+                                <Border Grid.Column="1" Style="{StaticResource Card}">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Production Line vs Time"/>
-                                        <lvc:CartesianChart Series="{Binding ProductionSeries}" Height="320" ZoomMode="X"
-                                                            AnimationsSpeed="0:0:0.3"/>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Machine Status"/>
+                                        <Border CornerRadius="10" Padding="14,12" Margin="0,4,0,8" Background="{Binding StateColor, Converter={StaticResource StrBrush}}">
+                                            <StackPanel>
+                                                <TextBlock Text="CURRENT STATE" FontSize="9" Foreground="White" Opacity="0.85"/>
+                                                <TextBlock Text="{Binding StateText}" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <StackPanel Margin="2,0">
+                                            <Grid Margin="0,4"><TextBlock Text="Operating Time" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding ElapsedTime}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" Foreground="{StaticResource DarkTextBrush}"/></Grid>
+                                            <Separator Background="#EEF1F4"/>
+                                            <Grid Margin="0,4"><TextBlock Text="Feed Rate (constant)" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding FeedRateText}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" Foreground="{StaticResource DarkTextBrush}"/></Grid>
+                                            <Separator Background="#EEF1F4"/>
+                                            <Grid Margin="0,4"><TextBlock Text="Total Production" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock HorizontalAlignment="Right" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource PrimaryAccentBrush}">
+                                                    <Run Text="{Binding ProdTotal, Mode=OneWay}"/><Run Text=" slices"/></TextBlock></Grid>
+                                            <Separator Background="#EEF1F4"/>
+                                            <Grid Margin="0,4"><TextBlock Text="Current Prod. Rate" FontSize="11" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock HorizontalAlignment="Right" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}">
+                                                    <Run Text="{Binding ProdCurrent, Mode=OneWay}"/><Run Text=" /min"/></TextBlock></Grid>
+                                        </StackPanel>
+                                        <Border Background="#FFF7ED" CornerRadius="8" Padding="10,8" Margin="0,8,0,0">
+                                            <TextBlock Text="Control the machine from the Home page: Start, Stop and End Process drive this dashboard."
+                                                       FontSize="10" Foreground="{StaticResource PrimaryAccentBrush}" TextWrapping="Wrap"/>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
-                            </UniformGrid>
+                            </Grid>
                         </Grid>
 
                         <!-- ==================== HISTORY PAGE ==================== -->
@@ -773,31 +931,190 @@
                                             <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="20"
                                                        Foreground="{StaticResource SoftGoldBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Machine Status" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource DarkTextBrush}"/>
+                                        <TextBlock Text="Maintenance Status" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource DarkTextBrush}"/>
                                         <StackPanel Margin="0,8,0,0">
                                             <StackPanel Orientation="Horizontal" Margin="0,2">
                                                 <Ellipse Width="8" Height="8" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="Operational" FontSize="11" Foreground="{StaticResource SuccessGreenBrush}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Monitoring active" FontSize="11" Foreground="{StaticResource SuccessGreenBrush}" FontWeight="SemiBold"/>
                                             </StackPanel>
-                                            <TextBlock Style="{StaticResource ValueLabel}" FontSize="11"><Run Text="Last Check: "/><Run Text="Today" FontWeight="SemiBold"/></TextBlock>
-                                            <TextBlock Style="{StaticResource ValueLabel}" FontSize="11"><Run Text="Next Service: "/><Run Text="Scheduled" FontWeight="SemiBold"/></TextBlock>
+                                            <TextBlock Style="{StaticResource ValueLabel}" FontSize="11"><Run Text="Monitored elements: "/><Run Text="{Binding MonitoredElementsCard, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                                            <TextBlock Style="{StaticResource ValueLabel}" FontSize="11"><Run Text="Maintenance operations: "/><Run Text="{Binding MaintenanceOperationsCard, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                                            <TextBlock Style="{StaticResource ValueLabel}" FontSize="11"><Run Text="Total maintenance cost: "/><Run Text="{Binding MaintenanceTotalCostCard, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
 
-                            <!-- Maintenance placeholder -->
-                            <Border Grid.Row="2" Style="{StaticResource Card}">
-                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,30">
-                                    <TextBlock Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="48"
-                                               Foreground="{StaticResource GrayBrush}" HorizontalAlignment="Center" Opacity="0.5"/>
-                                    <TextBlock Text="Maintenance Scheduling" FontSize="16" FontWeight="SemiBold"
-                                               Foreground="{StaticResource DarkTextBrush}" HorizontalAlignment="Center" Margin="0,12,0,4"/>
-                                    <TextBlock Text="Preventive maintenance scheduling and blade wear tracking will be available in the next release."
-                                               Foreground="{StaticResource SubTextBrush}" HorizontalAlignment="Center" TextAlignment="Center"
-                                               MaxWidth="400" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </Border>
+                            <!-- Predictive maintenance -->
+                            <StackPanel Grid.Row="2">
+
+                                <!-- Predictive health KPI strip -->
+                                <Border Style="{StaticResource Card}" Margin="6,0,6,8">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Predictive Element Health" Margin="0"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <TextBlock Text="Warning threshold:" FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"/>
+                                                <Border Background="#FFFBEB" CornerRadius="8" Padding="7,2" Margin="6,0,10,0">
+                                                    <TextBlock Text="{Binding WarningThresholdText}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SoftGoldBrush}"/>
+                                                </Border>
+                                                <Button Content="&#xE72C;  Refresh" FontSize="10" Padding="10,3" Cursor="Hand"
+                                                        Style="{StaticResource TealButton}" Command="{Binding RefreshMaintenanceCommand}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <UniformGrid Columns="4">
+                                            <Border Background="#F0FDF4" CornerRadius="12" Padding="14,12" Margin="0,0,8,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="MONITORED" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Opacity="0.85"/>
+                                                    <TextBlock Text="{Binding MonitoredElementsCard}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                                    <TextBlock Text="physical elements" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#FFFBEB" CornerRadius="12" Padding="14,12" Margin="0,0,8,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="WARNING" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SoftGoldBrush}"/>
+                                                    <TextBlock Text="{Binding ElementsWarningCard}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                                    <TextBlock Text="approaching end of life" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#FFF7ED" CornerRadius="12" Padding="14,12" Margin="0,0,8,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="CRITICAL" FontSize="9" FontWeight="Bold" Foreground="{StaticResource PrimaryAccentBrush}"/>
+                                                    <TextBlock Text="{Binding ElementsCriticalCard}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                                    <TextBlock Text="replace very soon" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#FEF2F2" CornerRadius="12" Padding="14,12">
+                                                <StackPanel>
+                                                    <TextBlock Text="FAILED" FontSize="9" FontWeight="Bold" Foreground="{StaticResource DangerRedBrush}"/>
+                                                    <TextBlock Text="{Binding ElementsFailedCard}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                                    <TextBlock Text="reached expected life" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </UniformGrid>
+
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                                                           Foreground="{StaticResource PrimaryAccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <StackPanel>
+                                                    <TextBlock Text="Most worn element" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                    <TextBlock Text="{Binding WorstElementCard}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                                    <TextBlock Text="{Binding WorstElementDetail}" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                <TextBlock Text="&#xE930;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                                                           Foreground="{StaticResource SuccessGreenBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <StackPanel>
+                                                    <TextBlock Text="Freshest element" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                    <TextBlock Text="{Binding HealthiestElementCard}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Element health table -->
+                                <Border Style="{StaticResource Card}" Margin="6,0,6,8">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Monitored Elements - Current Life Status"/>
+                                        <DataGrid ItemsSource="{Binding ElementHealthRows}" Style="{StaticResource ModernDataGrid}" MaxHeight="420">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="#" Binding="{Binding Order}" Width="36"/>
+                                                <DataGridTextColumn Header="Element" Binding="{Binding Element}" Width="130"/>
+                                                <DataGridTextColumn Header="Type" Binding="{Binding ElementType}" Width="105"/>
+                                                <DataGridTextColumn Header="Machine Position" Binding="{Binding Position}" Width="2*"/>
+                                                <DataGridTextColumn Header="Consumed Life" Binding="{Binding ConsumedLife}" Width="105"/>
+                                                <DataGridTextColumn Header="Default Life" Binding="{Binding DefaultLife}" Width="105"/>
+                                                <DataGridTextColumn Header="Remaining Life" Binding="{Binding RemainingLife}" Width="105"/>
+                                                <DataGridTemplateColumn Header="Life Used" Width="130">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel VerticalAlignment="Center" Margin="0,4">
+                                                                <TextBlock Text="{Binding LifeUsed}" FontSize="10" FontWeight="SemiBold"
+                                                                           Foreground="{Binding StatusColor, Converter={StaticResource StrBrush}}"/>
+                                                                <ProgressBar Style="{StaticResource ForceProgressBar}" Height="7" Margin="0,3,0,0"
+                                                                             Value="{Binding LifeUsedPercent, Mode=OneWay}"
+                                                                             Foreground="{Binding StatusColor, Converter={StaticResource StrBrush}}"/>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="Status" Width="80">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border CornerRadius="9" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                    Background="{Binding StatusColor, Converter={StaticResource StrBrush}}">
+                                                                <TextBlock Text="{Binding Status}" FontSize="9.5" FontWeight="Bold" Foreground="White"/>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTextColumn Header="Last Maintenance" Binding="{Binding LastMaintenance}" Width="115"/>
+                                                <DataGridTemplateColumn Header="Action" Width="110">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Button Content="&#xE90F;  Maintain" FontFamily="Segoe UI" FontSize="10" Padding="8,2" Cursor="Hand"
+                                                                    Style="{StaticResource AccentButton}"
+                                                                    Command="{Binding DataContext.RecordMaintenanceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding ElementId}"/>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <TextBlock Text="{Binding MaintenanceStatusMessage}" FontSize="10" Margin="0,8,0,0"
+                                                   TextWrapping="Wrap" Foreground="{StaticResource SubTextBrush}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Maintenance history table -->
+                                <Border Style="{StaticResource Card}" Margin="6,0,6,8">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Maintenance History" Margin="0"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Border Background="#F5F7FA" CornerRadius="8" Padding="9,3" Margin="0,0,8,0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Operations: " FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                                        <TextBlock Text="{Binding MaintenanceOperationsCard}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Background="#F5F7FA" CornerRadius="8" Padding="9,3">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Total cost: " FontSize="10" Foreground="{StaticResource SubTextBrush}"/>
+                                                        <TextBlock Text="{Binding MaintenanceTotalCostCard}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource PrimaryAccentBrush}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                        <DataGrid ItemsSource="{Binding MaintenanceRows}" Style="{StaticResource ModernDataGrid}" MaxHeight="300">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Element" Binding="{Binding Element}" Width="140"/>
+                                                <DataGridTextColumn Header="Element Type" Binding="{Binding ElementType}" Width="110"/>
+                                                <DataGridTextColumn Header="Element Position" Binding="{Binding Position}" Width="2*"/>
+                                                <DataGridTextColumn Header="Maintenance Date" Binding="{Binding MaintenanceDate}" Width="125"/>
+                                                <DataGridTextColumn Header="Done By" Binding="{Binding DoneBy}" Width="130"/>
+                                                <DataGridTextColumn Header="Maintenance Cost" Binding="{Binding Cost}" Width="115"/>
+                                                <DataGridTextColumn Header="Element Price" Binding="{Binding ElementPrice}" Width="105"/>
+                                                <DataGridTextColumn Header="Stopping Time Cost" Binding="{Binding StoppingTimeCost}" Width="125"/>
+                                                <DataGridTextColumn Header="Total" Binding="{Binding TotalCost}" Width="95"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <Border Background="#F9FAFB" CornerRadius="10" Padding="16" Margin="0,8,0,0"
+                                                Visibility="{Binding MaintenanceRows.Count, Converter={StaticResource ZeroToVisible}}">
+                                            <TextBlock Text="No previous maintenance record is available."
+                                                       FontSize="11" Foreground="{StaticResource SubTextBrush}" HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </Grid>
 
                     </Grid>
@@ -928,6 +1245,386 @@
                         </Grid>
                     </Border>
                 </Grid>
+
+                <!-- ===== RECORD-MAINTENANCE DRAWER (overlay) ===== -->
+                <Grid Grid.Row="1" Panel.ZIndex="25"
+                      Visibility="{Binding IsMaintenanceFormVisible, Converter={StaticResource BoolVis}}">
+                    <Button Command="{Binding CancelMaintenanceCommand}" Cursor="Arrow">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="#55000000"/>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <Border HorizontalAlignment="Right" Width="420" Background="White" CornerRadius="20,0,0,20">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="30" ShadowDepth="-4" Direction="0" Opacity="0.18"/>
+                        </Border.Effect>
+                        <Border.RenderTransform>
+                            <TranslateTransform X="0"/>
+                        </Border.RenderTransform>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsVisible" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                     From="440" To="0" Duration="0:0:0.32">
+                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" CornerRadius="20,0,0,0" Padding="20,18">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#17463E" Offset="0"/>
+                                        <GradientStop Color="#1F5F5B" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="Record Maintenance" FontSize="19" FontWeight="Bold" Foreground="White"/>
+                                        <TextBlock Text="{Binding MaintenanceElementName}" FontSize="12" Foreground="#9FD3CB" Margin="0,3,0,0"/>
+                                        <TextBlock Text="{Binding MaintenanceElementPosition}" FontSize="10" Foreground="#7CBFB5"
+                                                   Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Button Content="&#xE10A;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="White"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Command="{Binding CancelMaintenanceCommand}"/>
+                                </Grid>
+                            </Border>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,16">
+                                <StackPanel>
+                                    <TextBlock Text="Done By" FontSize="10.5" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding MaintenanceDoneBy, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="8,6" FontSize="12" Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Maintenance / Service Cost" FontSize="10.5" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding MaintenanceCost, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="8,6" FontSize="12" Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Element Price" FontSize="10.5" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding MaintenanceElementPrice, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="8,6" FontSize="12" Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Stopping Time Cost" FontSize="10.5" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding MaintenanceStoppingTimeCost, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="8,6" FontSize="12" Margin="0,0,0,14"/>
+
+                                    <Border Background="#FFF7ED" CornerRadius="10" Padding="12,10">
+                                        <StackPanel>
+                                            <CheckBox IsChecked="{Binding MaintenanceResetLife}" FontSize="11.5" FontWeight="SemiBold"
+                                                      Foreground="{StaticResource DarkTextBrush}"
+                                                      Content="Element was replaced - reset consumed life to 0"/>
+                                            <TextBlock Text="The maintenance record is always kept in the database, whether or not the life counter is reset."
+                                                       FontSize="10" Foreground="{StaticResource SubTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="{Binding MaintenanceFormError}" FontSize="11" Margin="0,12,0,0"
+                                               TextWrapping="Wrap" Foreground="{StaticResource DangerRedBrush}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <Border Grid.Row="2" Background="#F9FAFB" Padding="20,14" CornerRadius="0,0,0,20">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                    <Button Content="&#xE74E;  Save Maintenance" FontFamily="Segoe UI" Width="230"
+                                            Style="{StaticResource AccentButton}" Command="{Binding SaveMaintenanceCommand}"/>
+                                    <Button Content="Cancel" Width="120" Margin="10,0,0,0"
+                                            Style="{StaticResource TealButton}" Command="{Binding CancelMaintenanceCommand}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ===== ELEMENT FAILURE ALERT (overlay) ===== -->
+                <Grid Grid.Row="1" Panel.ZIndex="40"
+                      Visibility="{Binding IsFailureAlertVisible, Converter={StaticResource BoolVis}}">
+
+                    <!-- Scrim -->
+                    <Border Background="#B3140404">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsVisible" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.3"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                    </Border>
+
+                    <!-- Alert card -->
+                    <Border Width="640" MaxHeight="640" VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Background="White" CornerRadius="20" BorderThickness="2" BorderBrush="#EF4444">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="46" ShadowDepth="0" Color="#EF4444" Opacity="0.55"/>
+                        </Border.Effect>
+                        <Border.RenderTransformOrigin>0.5,0.5</Border.RenderTransformOrigin>
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1"/>
+                        </Border.RenderTransform>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsVisible" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                     From="0.82" To="1" Duration="0:0:0.45">
+                                                        <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.55"/></DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                     From="0.82" To="1" Duration="0:0:0.45">
+                                                        <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.55"/></DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.3"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Alert header with pulsing hazard beacon -->
+                            <Border Grid.Row="0" CornerRadius="18,18,0,0" Padding="24,20">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#7F1D1D" Offset="0"/>
+                                        <GradientStop Color="#EF4444" Offset="0.65"/>
+                                        <GradientStop Color="#E05C1A" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Beacon: two rings pulsing outward behind a warning glyph -->
+                                    <Grid Grid.Column="0" Width="62" Height="62" Margin="0,0,16,0">
+                                        <Ellipse Width="62" Height="62" Fill="#33FFFFFF" RenderTransformOrigin="0.5,0.5">
+                                            <Ellipse.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1"/></Ellipse.RenderTransform>
+                                            <Ellipse.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                             From="0.7" To="1.35" Duration="0:0:1.6"/>
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                             From="0.7" To="1.35" Duration="0:0:1.6"/>
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.85" To="0" Duration="0:0:1.6"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Ellipse.Triggers>
+                                        </Ellipse>
+                                        <Ellipse Width="62" Height="62" Fill="#33FFFFFF" RenderTransformOrigin="0.5,0.5">
+                                            <Ellipse.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1"/></Ellipse.RenderTransform>
+                                            <Ellipse.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever" BeginTime="0:0:0.8">
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                             From="0.7" To="1.35" Duration="0:0:1.6"/>
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                             From="0.7" To="1.35" Duration="0:0:1.6"/>
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.85" To="0" Duration="0:0:1.6"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Ellipse.Triggers>
+                                        </Ellipse>
+                                        <Ellipse Width="46" Height="46" Fill="White" Opacity="0.16"/>
+                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="26" Foreground="White"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.35" Duration="0:0:0.7"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </TextBlock.Triggers>
+                                        </TextBlock>
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <Border Background="#40000000" CornerRadius="20" Padding="10,3" HorizontalAlignment="Left">
+                                            <TextBlock Text="MACHINE STOPPED AUTOMATICALLY" FontSize="9.5" FontWeight="Bold"
+                                                       Foreground="White" />
+                                        </Border>
+                                        <TextBlock FontSize="23" FontWeight="Bold" Foreground="White" Margin="0,8,0,0">
+                                            <Run Text="{Binding FailureElementName, Mode=OneWay}"/>
+                                            <Run Text="{Binding FailureElementBadge, Mode=OneWay}"/>
+                                        </TextBlock>
+                                        <TextBlock Text="has reached the end of its expected life" FontSize="12" Foreground="#FFE4E4" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Alert body -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,18">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding FailurePosition}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{StaticResource DarkTextBrush}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding FailureDetectedAt}" FontSize="10.5" Foreground="{StaticResource SubTextBrush}" Margin="0,3,0,0"/>
+
+                                    <!-- Life consumption bar, animated to full on entry -->
+                                    <Grid Margin="0,16,0,0">
+                                        <TextBlock Text="Expected life consumed" FontSize="10.5" Foreground="{StaticResource SubTextBrush}"/>
+                                        <TextBlock Text="{Binding FailureLifeUsed}" FontSize="12" FontWeight="Bold"
+                                                   HorizontalAlignment="Right" Foreground="{StaticResource DangerRedBrush}"/>
+                                    </Grid>
+                                    <ProgressBar Height="10" Margin="0,6,0,0"
+                                                 Foreground="{StaticResource DangerRedBrush}" Value="100">
+                                        <ProgressBar.Style>
+                                            <Style TargetType="ProgressBar" BasedOn="{StaticResource ForceProgressBar}">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsVisible" Value="True">
+                                                        <Trigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Value" From="0" To="100" Duration="0:0:1.1">
+                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.EnterActions>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ProgressBar.Style>
+                                    </ProgressBar>
+
+                                    <!-- Element figures -->
+                                    <Border Background="#FEF2F2" CornerRadius="12" Padding="16,13" Margin="0,16,0,0">
+                                        <UniformGrid Columns="2">
+                                            <StackPanel Margin="0,4">
+                                                <TextBlock Text="Default Life" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding FailureDefaultLife}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,4">
+                                                <TextBlock Text="Consumed Life at Failure" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding FailureConsumedLife}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DangerRedBrush}"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,4">
+                                                <TextBlock Text="Remaining Life" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding FailureRemainingLife}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,4">
+                                                <TextBlock Text="Element Price" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                                <TextBlock Text="{Binding FailureElementPrice}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                            </StackPanel>
+                                        </UniformGrid>
+                                    </Border>
+
+                                    <!-- Machine condition at failure -->
+                                    <TextBlock Style="{StaticResource SectionHeader}" Text="Machine condition at failure" Margin="0,18,0,8"/>
+                                    <UniformGrid Columns="2">
+                                        <StackPanel Margin="0,4">
+                                            <TextBlock Text="Machine Runtime" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding FailureMachineRuntime}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,4">
+                                            <TextBlock Text="Machine Speed" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding FailureMachineSpeed}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,4">
+                                            <TextBlock Text="Production Since Start" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding FailureProduction}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,4">
+                                            <TextBlock Text="Electricity Since Start" FontSize="9.5" Foreground="{StaticResource SubTextBrush}"/>
+                                            <TextBlock Text="{Binding FailureEnergy}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource DarkTextBrush}"/>
+                                        </StackPanel>
+                                    </UniformGrid>
+
+                                    <!-- Predictive summary -->
+                                    <Border Background="#FFFBEB" CornerRadius="10" Padding="13,10" Margin="0,16,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                                                       Foreground="{StaticResource SoftGoldBrush}" VerticalAlignment="Top" Margin="0,1,9,0"/>
+                                            <TextBlock Text="{Binding FailureApproachingSummary}" FontSize="11" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource DarkTextBrush}" MaxWidth="520"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- E-mail status with a live pulsing dot -->
+                                    <Border Background="#F5F7FA" CornerRadius="10" Padding="13,10" Margin="0,10,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="9" Height="9" VerticalAlignment="Top" Margin="0,4,9,0"
+                                                     Fill="{Binding FailureEmailColor, Converter={StaticResource StrBrush}}">
+                                                <Ellipse.Triggers>
+                                                    <EventTrigger RoutedEvent="Loaded">
+                                                        <BeginStoryboard>
+                                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.25" Duration="0:0:0.75"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </EventTrigger>
+                                                </Ellipse.Triggers>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding FailureEmailStatus}" FontSize="11" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource DarkTextBrush}" MaxWidth="520"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Alert footer -->
+                            <Border Grid.Row="2" Background="#F9FAFB" Padding="24,15" CornerRadius="0,0,18,18">
+                                <Grid>
+                                    <TextBlock Text="The machine was stopped so the maintenance department can inspect the component."
+                                               FontSize="10" Foreground="{StaticResource SubTextBrush}" VerticalAlignment="Center"
+                                               TextWrapping="Wrap" MaxWidth="290" HorizontalAlignment="Left"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="&#xE90F;  Open Maintenance" FontFamily="Segoe UI" Margin="0,0,10,0"
+                                                Style="{StaticResource AccentButton}" Command="{Binding GoToMaintenanceFromAlertCommand}"/>
+                                        <Button Content="Dismiss" Style="{StaticResource TealButton}"
+                                                Command="{Binding DismissFailureAlertCommand}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+
             </Grid>
         </Grid>
     </Border>

@@ -28,3 +28,11 @@ packages/
 ## OS
 Thumbs.db
 .DS_Store
+
+## Maintenance system - OAuth secrets (NEVER commit)
+credentials.json
+client_secret*.json
+**/Credentials/
+GmailToken/
+*.token.json
+token.json
